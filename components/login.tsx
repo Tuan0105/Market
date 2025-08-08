@@ -369,8 +369,12 @@ export function Login({ onLoginSuccess }: LoginProps) {
          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
            <h3 className="text-sm font-medium text-blue-900 mb-2">Tài khoản demo:</h3>
            <div className="space-y-1 text-xs text-blue-800">
-             <p><strong>Admin:</strong> 0123456789 / 1</p>
-             <p><strong>User:</strong> 0987654321 / 1</p>
+             <p><strong>Admin:</strong></p>
+             <p>Số điện thoại: 0123456789</p>
+             <p>Mật khẩu: 1</p>
+             <p><strong>User:</strong></p>
+             <p>Số điện thoại: 0987654321</p>
+             <p>Mật khẩu: 1</p>
            </div>
          </div>
       </div>
