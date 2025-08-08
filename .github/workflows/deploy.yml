@@ -1,0 +1,43 @@
+# Tên của quy trình làm việc (hiển thị trên tab Actions)
+name: Deploy Static Content to Pages
+
+# Kích hoạt quy trình khi có commit được đẩy lên nhánh `main`
+on:
+  push:
+    branches: ["master"] # Thay "main" bằng "master" nếu đó là nhánh chính của bạn
+
+# Các quyền cần thiết để Action có thể triển khai lên GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Chỉ cho phép một lần triển khai đồng thời, hủy các lần chạy trước đó
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+# Công việc cần thực hiện
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      # QUAN TRỌNG: Bước này giả định web của bạn không cần build
+      # Các tệp HTML, CSS, JS nằm ngay ở thư mục gốc
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Tải lên toàn bộ thư mục gốc của dự án
+          path: '.'
+          # **LƯU Ý**: Nếu dự án của bạn cần build (ví dụ: React, Vue, Svelte)
+          # bạn cần thêm bước build ở đây và thay `path` thành thư mục build, ví dụ: './dist' hoặc './build'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
