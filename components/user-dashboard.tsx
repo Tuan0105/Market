@@ -232,7 +232,7 @@ export function UserDashboard({ userData, onLogout }: UserDashboardProps) {
                 className="text-sm text-orange-600 hover:text-orange-800 underline"
                 onClick={() => setIsDebtDetailModalOpen(true)}
               >
-                Xem chi tiết công nợ >
+                Xem chi tiết công nợ &gt;
               </button>
             </div>
           </CardContent>
@@ -262,7 +262,7 @@ export function UserDashboard({ userData, onLogout }: UserDashboardProps) {
                   className="text-sm text-blue-600 hover:text-blue-800 underline"
                   onClick={() => setIsAllNotificationsModalOpen(true)}
                 >
-                  Xem tất cả thông báo >
+                  Xem tất cả thông báo &gt;
                 </button>
               </div>
             </div>
