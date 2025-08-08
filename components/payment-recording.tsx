@@ -538,28 +538,34 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
           { key: "input", label: "Nhập thông tin", step: 2 },
           { key: "verification", label: "Xác nhận", step: 3 },
           { key: "confirmation", label: "Hoàn thành", step: 4 },
-        ].map((item, index) => (
-          <div key={item.key} className="flex items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                currentStep === item.key
-                  ? "bg-blue-600 text-white"
-                  : ["search", "input", "verification"].indexOf(currentStep) >
-                      ["search", "input", "verification"].indexOf(item.key)
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-200 text-gray-600"
-              }`}
-            >
-              {item.step}
+        ].map((item, index) => {
+          const steps = ["search", "input", "verification", "confirmation"]
+          const currentStepIndex = steps.indexOf(currentStep)
+          const itemStepIndex = steps.indexOf(item.key)
+          
+          let stepClass = "bg-gray-200 text-gray-600"
+          if (currentStep === item.key) {
+            stepClass = "bg-blue-600 text-white"
+          } else if (currentStepIndex > itemStepIndex) {
+            stepClass = "bg-green-600 text-white"
+          }
+          
+          return (
+            <div key={item.key} className="flex items-center">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${stepClass}`}
+              >
+                {item.step}
+              </div>
+              <span
+                className={`ml-2 text-sm ${currentStep === item.key ? "text-blue-600 font-medium" : "text-gray-600"}`}
+              >
+                {item.label}
+              </span>
+              {index < 3 && <div className="w-8 h-px bg-gray-300 mx-4" />}
             </div>
-            <span
-              className={`ml-2 text-sm ${currentStep === item.key ? "text-blue-600 font-medium" : "text-gray-600"}`}
-            >
-              {item.label}
-            </span>
-            {index < 3 && <div className="w-8 h-px bg-gray-300 mx-4" />}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {currentStep === "search" && renderSearchStep()}
