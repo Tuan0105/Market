@@ -217,7 +217,7 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
                 <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Hủy</Button>
                 <Button onClick={() => {
                   // Thêm hóa đơn mẫu vào danh sách
-                  const newInvoices = bulkRows.filter(r => r.checked).map(row => {
+                  const newInvoices: Invoice[] = bulkRows.filter(r => r.checked).map(row => {
                     let amount = 0
                     if (bulkFeeType === "electricity") amount = row.amount
                     else if (bulkFeeType === "sanitation") amount = row.amount
@@ -230,7 +230,7 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
                       amount,
                       createdDate: "2025-08-01",
                       dueDate: "2025-08-15",
-                      status: "unpaid"
+                      status: "unpaid" as const
                     }
                   })
                   setInvoiceList(list => [...list, ...newInvoices])
