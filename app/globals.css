@@ -91,3 +91,22 @@ body {
   opacity: 1;
   background-color: var(--rdp-accent-color);
 }
+
+/* Hide default Sheet close button since we have custom one */
+[data-slot="sheet-content"] > button:last-child {
+  display: none !important;
+}
+
+/* Custom width for wide sheet panel */
+[data-slot="sheet-content"] {
+  width: 1400px !important;
+  max-width: 95vw !important;
+  min-width: 1400px !important;
+}
+
+@media (max-width: 1440px) {
+  [data-slot="sheet-content"] {
+    width: 90vw !important;
+    min-width: unset !important;
+  }
+}
