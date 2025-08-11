@@ -8,29 +8,22 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, Eye, Edit, Calendar, ArrowLeft, Trash2, MapPin } from "lucide-react"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Search, Plus, Eye, Edit, Calendar, ArrowLeft, Trash2, MapPin, X } from "lucide-react"
+import { useStallData, Stall } from "@/lib/stall-data-context"
 
 interface StallManagementProps {
   onBack: () => void
 }
 
-interface Stall {
-  id: string
-  code: string
-  merchantName: string
-  businessType: string
-  area: number
-  status: "occupied" | "vacant" | "expiring"
-  contractEndDate: string
-  monthlyRent: number
-}
-
 type FilterStatus = "all" | "occupied" | "vacant" | "expiring"
 
 export function StallManagement({ onBack }: StallManagementProps) {
+  const { stalls, setStalls, updateStall, deleteStall, syncMapData } = useStallData()
+  
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all")
-  const [isAddContractModalOpen, setIsAddContractModalOpen] = useState(false)
+  const [isAddContractSidePanelOpen, setIsAddContractSidePanelOpen] = useState(false)
   const [selectedStalls, setSelectedStalls] = useState<string[]>([])
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isViewStallModalOpen, setIsViewStallModalOpen] = useState(false)
@@ -38,6 +31,10 @@ export function StallManagement({ onBack }: StallManagementProps) {
   const [isContractHistoryModalOpen, setIsContractHistoryModalOpen] = useState(false)
   const [selectedStall, setSelectedStall] = useState<Stall | null>(null)
   const [editingStall, setEditingStall] = useState<Stall | null>(null)
+  const [hoveredStall, setHoveredStall] = useState<string | null>(null)
+  const [highlightedStall, setHighlightedStall] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
   const [newContract, setNewContract] = useState({
     code: "",
     merchantName: "",
@@ -58,70 +55,6 @@ export function StallManagement({ onBack }: StallManagementProps) {
     { id: "6", name: "Vũ Đình Long", stallId: "D02" },
   ]
 
-  // Sample data - chuyển thành state để có thể thêm mới
-  const [stalls, setStalls] = useState<Stall[]>([
-    {
-      id: "1",
-      code: "A01",
-      merchantName: "Nguyễn Thị Lan",
-      businessType: "Thực phẩm tươi sống",
-      area: 12,
-      status: "occupied",
-      contractEndDate: "2025-12-31",
-      monthlyRent: 5000000,
-    },
-    {
-      id: "2",
-      code: "A02",
-      merchantName: "",
-      businessType: "",
-      area: 15,
-      status: "vacant",
-      contractEndDate: "",
-      monthlyRent: 6000000,
-    },
-    {
-      id: "3",
-      code: "B01",
-      merchantName: "Trần Văn Hùng",
-      businessType: "Gia vị, nước chấm",
-      area: 10,
-      status: "expiring",
-      contractEndDate: "2025-09-15",
-      monthlyRent: 4500000,
-    },
-    {
-      id: "4",
-      code: "B02",
-      merchantName: "Lê Thị Mai",
-      businessType: "Rau củ quả",
-      area: 8,
-      status: "occupied",
-      contractEndDate: "2026-03-20",
-      monthlyRent: 4000000,
-    },
-    {
-      id: "5",
-      code: "C01",
-      merchantName: "",
-      businessType: "",
-      area: 20,
-      status: "vacant",
-      contractEndDate: "",
-      monthlyRent: 8000000,
-    },
-    {
-      id: "6",
-      code: "C02",
-      merchantName: "Phạm Văn Nam",
-      businessType: "Thịt tươi",
-      area: 18,
-      status: "occupied",
-      contractEndDate: "2025-11-30",
-      monthlyRent: 7500000,
-    },
-  ])
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "occupied":
@@ -136,8 +69,8 @@ export function StallManagement({ onBack }: StallManagementProps) {
   }
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "-"
-    return new Date(dateString).toLocaleDateString("vi-VN")
+    if (!dateString) return "Chưa có"
+    return new Date(dateString).toLocaleDateString('vi-VN')
   }
 
   const formatCurrency = (amount: number) => {
@@ -147,11 +80,91 @@ export function StallManagement({ onBack }: StallManagementProps) {
     }).format(amount)
   }
 
-  const filteredStalls = stalls.filter((stall) => {
+
+
+  const getFilterCount = (status: FilterStatus) => {
+    if (status === "all") return stalls.length
+    return stalls.filter(stall => stall.status === status).length
+  }
+
+  // Hàm xử lý tương tác hai chiều
+  const handleStallClick = (stallCode: string) => {
+    const stall = stalls.find(s => s.code === stallCode)
+    if (stall) {
+      setHighlightedStall(stallCode)
+      
+      // Tìm vị trí của stall trong danh sách đã lọc
+      const stallIndex = filteredStalls.findIndex(s => s.code === stallCode)
+      if (stallIndex !== -1) {
+        // Tính toán trang chứa stall này
+        const targetPage = Math.floor(stallIndex / itemsPerPage) + 1
+        
+        // Nếu stall không ở trang hiện tại, chuyển đến trang đó
+        if (targetPage !== currentPage) {
+          setCurrentPage(targetPage)
+          
+          // Đợi một chút để trang được cập nhật, sau đó scroll đến stall
+          setTimeout(() => {
+            const tableRow = document.getElementById(`stall-row-${stallCode}`)
+            if (tableRow) {
+              tableRow.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              tableRow.classList.add('bg-blue-50', 'border-blue-200')
+              setTimeout(() => {
+                tableRow.classList.remove('bg-blue-50', 'border-blue-200')
+              }, 2000)
+            }
+          }, 100)
+        } else {
+          // Nếu stall đã ở trang hiện tại, scroll ngay lập tức
+          const tableRow = document.getElementById(`stall-row-${stallCode}`)
+          if (tableRow) {
+            tableRow.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            tableRow.classList.add('bg-blue-50', 'border-blue-200')
+            setTimeout(() => {
+              tableRow.classList.remove('bg-blue-50', 'border-blue-200')
+            }, 2000)
+          }
+        }
+      }
+    }
+  }
+
+  const handleStallHover = (stallCode: string) => {
+    setHoveredStall(stallCode)
+  }
+
+  const handleStallLeave = () => {
+    setHoveredStall(null)
+  }
+
+  const handleTableRowHover = (stallCode: string) => {
+    setHoveredStall(stallCode)
+  }
+
+  const handleTableRowLeave = () => {
+    setHoveredStall(null)
+  }
+
+  // Hàm tạo hợp đồng theo ngữ cảnh
+  const handleCreateContractForStall = (stallCode: string) => {
+    const stall = stalls.find(s => s.code === stallCode)
+    if (stall) {
+      setNewContract({
+        ...newContract,
+        code: stallCode,
+        area: stall.area,
+        monthlyRent: stall.monthlyRent
+      })
+      setIsAddContractSidePanelOpen(true)
+    }
+  }
+
+  // Phân trang
+  const filteredStalls = stalls.filter(stall => {
     const matchesSearch = 
       stall.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       stall.merchantName.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     const matchesFilter = 
       filterStatus === "all" || 
       stall.status === filterStatus
@@ -159,10 +172,10 @@ export function StallManagement({ onBack }: StallManagementProps) {
     return matchesSearch && matchesFilter
   })
 
-  const getFilterCount = (status: FilterStatus) => {
-    if (status === "all") return stalls.length
-    return stalls.filter(stall => stall.status === status).length
-  }
+  const totalPages = Math.ceil(filteredStalls.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentStalls = filteredStalls.slice(startIndex, endIndex)
 
   return (
     <div className="p-6 space-y-6">
@@ -178,17 +191,16 @@ export function StallManagement({ onBack }: StallManagementProps) {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Quản lý Gian hàng</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Danh sách Gian hàng</h1>
             <p className="text-gray-600">Quản lý thông tin gian hàng và hợp đồng thuê</p>
           </div>
         </div>
-        <Button 
-          className="bg-blue-600 hover:bg-blue-700"
-          onClick={() => setIsAddContractModalOpen(true)}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Thêm Hợp đồng mới
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button className="flex items-center gap-2" onClick={() => setIsAddContractSidePanelOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Thêm hợp đồng mới
+          </Button>
+        </div>
       </div>
 
       {/* Filters and Search */}
@@ -256,7 +268,7 @@ export function StallManagement({ onBack }: StallManagementProps) {
           <div className="relative overflow-auto bg-gray-50 rounded-lg border-2 border-gray-200" style={{ height: "400px" }}>
             <div className="relative p-6">
               {/* Market Zones */}
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-3 gap-4">
                 {/* Zone A - Food */}
                 <div className="bg-green-500 rounded-lg p-4 text-white shadow-lg">
                   <div className="text-center mb-3">
@@ -264,14 +276,40 @@ export function StallManagement({ onBack }: StallManagementProps) {
                     <p className="text-sm opacity-90">Thực phẩm tươi sống</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white bg-opacity-20 rounded p-2 text-center text-xs">
-                      <div className="font-bold">A01</div>
-                      <div className="opacity-90">Nguyễn Thị Lan</div>
-                    </div>
-                    <div className="bg-gray-300 bg-opacity-30 rounded p-2 text-center text-xs">
-                      <div className="font-bold">A02</div>
-                      <div className="opacity-90">Còn trống</div>
-                    </div>
+                    {stalls.filter(s => s.code.startsWith('A')).map(stall => (
+                      <div
+                        key={stall.code}
+                        className={`rounded p-2 text-center text-xs cursor-pointer transition-all duration-200 ${
+                          stall.status === 'occupied' ? 'bg-white bg-opacity-20' :
+                          stall.status === 'vacant' ? 'bg-gray-300 bg-opacity-30' :
+                          'bg-orange-400 bg-opacity-30'
+                        } ${
+                          hoveredStall === stall.code ? 'ring-2 ring-yellow-300 ring-opacity-80' : ''
+                        } ${
+                          highlightedStall === stall.code ? 'ring-2 ring-blue-400 ring-opacity-100' : ''
+                        }`}
+                        onClick={() => handleStallClick(stall.code)}
+                        onMouseEnter={() => handleStallHover(stall.code)}
+                        onMouseLeave={handleStallLeave}
+                      >
+                        <div className="font-bold">{stall.code}</div>
+                        <div className="opacity-90">
+                          {stall.merchantName || 'Còn trống'}
+                        </div>
+                        {stall.status === 'vacant' && (
+                          <Button
+                            size="sm"
+                            className="mt-1 h-6 text-xs bg-blue-600 hover:bg-blue-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCreateContractForStall(stall.code)
+                            }}
+                          >
+                            Tạo hợp đồng
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -282,14 +320,40 @@ export function StallManagement({ onBack }: StallManagementProps) {
                     <p className="text-sm opacity-90">Rau củ quả</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white bg-opacity-20 rounded p-2 text-center text-xs">
-                      <div className="font-bold">B01</div>
-                      <div className="opacity-90">Trần Văn Hùng</div>
-                    </div>
-                    <div className="bg-white bg-opacity-20 rounded p-2 text-center text-xs">
-                      <div className="font-bold">B02</div>
-                      <div className="opacity-90">Lê Thị Mai</div>
-                    </div>
+                    {stalls.filter(s => s.code.startsWith('B')).map(stall => (
+                      <div
+                        key={stall.code}
+                        className={`rounded p-2 text-center text-xs cursor-pointer transition-all duration-200 ${
+                          stall.status === 'occupied' ? 'bg-white bg-opacity-20' :
+                          stall.status === 'vacant' ? 'bg-gray-300 bg-opacity-30' :
+                          'bg-orange-400 bg-opacity-30'
+                        } ${
+                          hoveredStall === stall.code ? 'ring-2 ring-yellow-300 ring-opacity-80' : ''
+                        } ${
+                          highlightedStall === stall.code ? 'ring-2 ring-blue-400 ring-opacity-100' : ''
+                        }`}
+                        onClick={() => handleStallClick(stall.code)}
+                        onMouseEnter={() => handleStallHover(stall.code)}
+                        onMouseLeave={handleStallLeave}
+                      >
+                        <div className="font-bold">{stall.code}</div>
+                        <div className="opacity-90">
+                          {stall.merchantName || 'Còn trống'}
+                        </div>
+                        {stall.status === 'vacant' && (
+                          <Button
+                            size="sm"
+                            className="mt-1 h-6 text-xs bg-blue-600 hover:bg-blue-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCreateContractForStall(stall.code)
+                            }}
+                          >
+                            Tạo hợp đồng
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -300,14 +364,128 @@ export function StallManagement({ onBack }: StallManagementProps) {
                     <p className="text-sm opacity-90">Hỗn hợp</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-gray-300 bg-opacity-30 rounded p-2 text-center text-xs">
-                      <div className="font-bold">C01</div>
-                      <div className="opacity-90">Còn trống</div>
-                    </div>
-                    <div className="bg-white bg-opacity-20 rounded p-2 text-center text-xs">
-                      <div className="font-bold">C02</div>
-                      <div className="opacity-90">Phạm Văn Nam</div>
-                    </div>
+                    {stalls.filter(s => s.code.startsWith('C')).map(stall => (
+                      <div
+                        key={stall.code}
+                        className={`rounded p-2 text-center text-xs cursor-pointer transition-all duration-200 ${
+                          stall.status === 'occupied' ? 'bg-white bg-opacity-20' :
+                          stall.status === 'vacant' ? 'bg-gray-300 bg-opacity-30' :
+                          'bg-orange-400 bg-opacity-30'
+                        } ${
+                          hoveredStall === stall.code ? 'ring-2 ring-yellow-300 ring-opacity-80' : ''
+                        } ${
+                          highlightedStall === stall.code ? 'ring-2 ring-blue-400 ring-opacity-100' : ''
+                        }`}
+                        onClick={() => handleStallClick(stall.code)}
+                        onMouseEnter={() => handleStallHover(stall.code)}
+                        onMouseLeave={handleStallLeave}
+                      >
+                        <div className="font-bold">{stall.code}</div>
+                        <div className="opacity-90">
+                          {stall.merchantName || 'Còn trống'}
+                        </div>
+                        {stall.status === 'vacant' && (
+                          <Button
+                            size="sm"
+                            className="mt-1 h-6 text-xs bg-blue-600 hover:bg-blue-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCreateContractForStall(stall.code)
+                            }}
+                          >
+                            Tạo hợp đồng
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Zone D - Seafood */}
+                <div className="bg-purple-500 rounded-lg p-4 text-white shadow-lg">
+                  <div className="text-center mb-3">
+                    <h3 className="font-bold text-lg">Khu D</h3>
+                    <p className="text-sm opacity-90">Hải sản & Gia vị</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {stalls.filter(s => s.code.startsWith('D')).map(stall => (
+                      <div
+                        key={stall.code}
+                        className={`rounded p-2 text-center text-xs cursor-pointer transition-all duration-200 ${
+                          stall.status === 'occupied' ? 'bg-white bg-opacity-20' :
+                          stall.status === 'vacant' ? 'bg-gray-300 bg-opacity-30' :
+                          'bg-orange-400 bg-opacity-30'
+                        } ${
+                          hoveredStall === stall.code ? 'ring-2 ring-yellow-300 ring-opacity-80' : ''
+                        } ${
+                          highlightedStall === stall.code ? 'ring-2 ring-blue-400 ring-opacity-100' : ''
+                        }`}
+                        onClick={() => handleStallClick(stall.code)}
+                        onMouseEnter={() => handleStallHover(stall.code)}
+                        onMouseLeave={handleStallLeave}
+                      >
+                        <div className="font-bold">{stall.code}</div>
+                        <div className="opacity-90">
+                          {stall.merchantName || 'Còn trống'}
+                        </div>
+                        {stall.status === 'vacant' && (
+                          <Button
+                            size="sm"
+                            className="mt-1 h-6 text-xs bg-blue-600 hover:bg-blue-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCreateContractForStall(stall.code)
+                            }}
+                          >
+                            Tạo hợp đồng
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Zone E - Mixed */}
+                <div className="bg-indigo-500 rounded-lg p-4 text-white shadow-lg">
+                  <div className="text-center mb-3">
+                    <h3 className="font-bold text-lg">Khu E</h3>
+                    <p className="text-sm opacity-90">Hỗn hợp</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {stalls.filter(s => s.code.startsWith('E')).map(stall => (
+                      <div
+                        key={stall.code}
+                        className={`rounded p-2 text-center text-xs cursor-pointer transition-all duration-200 ${
+                          stall.status === 'occupied' ? 'bg-white bg-opacity-20' :
+                          stall.status === 'vacant' ? 'bg-gray-300 bg-opacity-30' :
+                          'bg-orange-400 bg-opacity-30'
+                        } ${
+                          hoveredStall === stall.code ? 'ring-2 ring-yellow-300 ring-opacity-80' : ''
+                        } ${
+                          highlightedStall === stall.code ? 'ring-2 ring-blue-400 ring-opacity-100' : ''
+                        }`}
+                        onClick={() => handleStallClick(stall.code)}
+                        onMouseEnter={() => handleStallHover(stall.code)}
+                        onMouseLeave={handleStallLeave}
+                      >
+                        <div className="font-bold">{stall.code}</div>
+                        <div className="opacity-90">
+                          {stall.merchantName || 'Còn trống'}
+                        </div>
+                        {stall.status === 'vacant' && (
+                          <Button
+                            size="sm"
+                            className="mt-1 h-6 text-xs bg-blue-600 hover:bg-blue-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCreateContractForStall(stall.code)
+                            }}
+                          >
+                            Tạo hợp đồng
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -341,7 +519,7 @@ export function StallManagement({ onBack }: StallManagementProps) {
             <div>
               <CardTitle>Danh sách Gian hàng</CardTitle>
               <CardDescription>
-                Hiển thị {filteredStalls.length} gian hàng
+                Hiển thị {filteredStalls.length} gian hàng (Trang {currentPage}/{totalPages})
               </CardDescription>
             </div>
             {selectedStalls.length > 0 && (
@@ -382,17 +560,27 @@ export function StallManagement({ onBack }: StallManagementProps) {
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Mã Gian hàng</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Tên Tiểu thương</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Ngành hàng</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Diện tích (m²)</th>
+                  <th className="text-right py-3 px-4 font-medium text-gray-900">Diện tích (m²)</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Trạng thái</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Ngày hết hạn HĐ</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Hành động</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredStalls.map((stall) => (
-                  <tr key={stall.id} className={`border-b hover:bg-gray-50 ${
-                    selectedStalls.includes(stall.id) ? 'bg-blue-50' : ''
-                  }`}>
+                {currentStalls.map((stall) => (
+                  <tr 
+                    key={stall.id} 
+                    id={`stall-row-${stall.code}`}
+                    className={`border-b hover:bg-gray-50 transition-all duration-200 ${
+                      selectedStalls.includes(stall.id) ? 'bg-blue-50' : ''
+                    } ${
+                      hoveredStall === stall.code ? 'bg-yellow-50 border-yellow-200' : ''
+                    } ${
+                      highlightedStall === stall.code ? 'bg-blue-100 border-blue-300' : ''
+                    }`}
+                    onMouseEnter={() => handleTableRowHover(stall.code)}
+                    onMouseLeave={handleTableRowLeave}
+                  >
                     <td className="py-3 px-4">
                       <input
                         type="checkbox"
@@ -413,10 +601,10 @@ export function StallManagement({ onBack }: StallManagementProps) {
                     <td className="py-3 px-4 text-gray-700">
                       {stall.businessType || "-"}
                     </td>
-                    <td className="py-3 px-4 text-gray-700">{stall.area}</td>
+                    <td className="py-3 px-4 text-gray-700 text-right">{stall.area}</td>
                     <td className="py-3 px-4">{getStatusBadge(stall.status)}</td>
                     <td className="py-3 px-4 text-gray-700">
-                      {formatDate(stall.contractEndDate)}
+                      {formatDate(stall.contractEndDate || "")}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
@@ -469,32 +657,91 @@ export function StallManagement({ onBack }: StallManagementProps) {
               Không tìm thấy gian hàng nào phù hợp với bộ lọc
             </div>
           )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-gray-600">
+                Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredStalls.length)} trong tổng số {filteredStalls.length} gian hàng
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Trước
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Sau
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Add Contract Modal */}
-      <Dialog open={isAddContractModalOpen} onOpenChange={setIsAddContractModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Thêm Hợp đồng mới</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
+      {/* Add Contract Sheet - Side Panel */}
+      <Sheet open={isAddContractSidePanelOpen} onOpenChange={setIsAddContractSidePanelOpen}>
+        <SheetContent side="right" className="overflow-y-auto p-0">
+          <SheetHeader className="space-y-4 pb-6 border-b p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Plus className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <SheetTitle className="text-xl font-bold">Thêm Hợp đồng mới</SheetTitle>
+                  <p className="text-sm text-gray-600">
+                    Điền đầy đủ thông tin để tạo hợp đồng thuê gian hàng mới
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setIsAddContractSidePanelOpen(false)}
+                className="h-8 w-8"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </SheetHeader>
+
+          <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Chọn tiểu thương</Label>
                 <Select
                   value={newContract.merchantName || "none"}
                   onValueChange={(value) => {
-                    const selectedMerchant = merchants.find(m => m.name === value)
                     setNewContract({
                       ...newContract, 
-                      merchantName: value === "none" ? "" : value,
-                      code: selectedMerchant?.stallId || ""
+                      merchantName: value === "none" ? "" : value
                     })
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn tiểu thương..." />
+                    <SelectValue placeholder="Tìm kiếm và chọn tiểu thương..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Chưa có tiểu thương</SelectItem>
@@ -512,8 +759,14 @@ export function StallManagement({ onBack }: StallManagementProps) {
                   value={newContract.code}
                   onChange={(e) => setNewContract({...newContract, code: e.target.value})}
                   placeholder="VD: A01, B02..."
-                  disabled={newContract.merchantName !== ""}
+                  disabled={newContract.code !== ""}
+                  className="bg-gray-50"
                 />
+                {newContract.code && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Mã gian hàng đã được chọn: {newContract.code}
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Ngành hàng</Label>
@@ -570,9 +823,9 @@ export function StallManagement({ onBack }: StallManagementProps) {
             <div className="flex justify-end gap-2">
               <Button 
                 variant="outline" 
-                onClick={() => {
-                  setIsAddContractModalOpen(false)
-                  setNewContract({
+                                 onClick={() => {
+                   setIsAddContractSidePanelOpen(false)
+                   setNewContract({
                     code: "",
                     merchantName: "",
                     businessType: "",
@@ -613,7 +866,7 @@ export function StallManagement({ onBack }: StallManagementProps) {
                        status: "vacant"
                      })
                      
-                     setIsAddContractModalOpen(false)
+                                           setIsAddContractSidePanelOpen(false)
                    }
                  }}
                >
@@ -621,8 +874,8 @@ export function StallManagement({ onBack }: StallManagementProps) {
                </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* View Stall Details Modal */}
       <Dialog open={isViewStallModalOpen} onOpenChange={setIsViewStallModalOpen}>
@@ -658,7 +911,7 @@ export function StallManagement({ onBack }: StallManagementProps) {
                   </div>
                   <div>
                     <Label className="text-sm text-gray-600">Ngày hết hạn hợp đồng</Label>
-                    <p className="font-medium">{formatDate(selectedStall.contractEndDate)}</p>
+                    <p className="font-medium">{formatDate(selectedStall.contractEndDate || "")}</p>
                   </div>
                   <div>
                     <Label className="text-sm text-gray-600">Phí thuê hàng tháng</Label>
@@ -813,7 +1066,7 @@ export function StallManagement({ onBack }: StallManagementProps) {
                   </div>
                   <div>
                     <Label className="text-sm text-gray-600">Ngày hết hạn</Label>
-                    <p className="font-medium">{formatDate(selectedStall.contractEndDate)}</p>
+                    <p className="font-medium">{formatDate(selectedStall.contractEndDate || "")}</p>
                   </div>
                   <div>
                     <Label className="text-sm text-gray-600">Phí thuê</Label>
@@ -834,7 +1087,7 @@ export function StallManagement({ onBack }: StallManagementProps) {
                             <p className="font-medium">{selectedStall.merchantName}</p>
                             <p className="text-sm text-gray-600">
                               {selectedStall.contractEndDate ? 
-                                `01/01/${new Date(selectedStall.contractEndDate).getFullYear()} - ${formatDate(selectedStall.contractEndDate)}` : 
+                                `01/01/${new Date(selectedStall.contractEndDate || "").getFullYear()} - ${formatDate(selectedStall.contractEndDate || "")}` : 
                                 "Chưa có ngày kết thúc"
                               }
                             </p>

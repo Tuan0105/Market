@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import 'react-day-picker/dist/style.css'
 import { Toaster } from "@/components/ui/toaster"
+import { StallDataProvider } from "@/lib/stall-data-context"
 
 export const metadata: Metadata = {
   title: 'Market Management Dashboard',
@@ -16,7 +17,9 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className="antialiased">
-        {children}
+        <StallDataProvider>
+          {children}
+        </StallDataProvider>
         <Toaster />
       </body>
     </html>

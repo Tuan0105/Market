@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -31,12 +32,20 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Brush, Pie as RePie, PieChart as RePieChart, Cell } from "recharts"
+import { Checkbox } from "@/components/ui/checkbox"
+import { useToast } from "@/components/ui/use-toast"
 
 interface RevenueData {
   date: string
   amount: number
   transactionCount: number
+  sourceBreakdown?: {
+    [key: string]: {
+  amount: number
+  transactionCount: number
+    }
+  }
 }
 
 interface RevenueSource {
@@ -74,11 +83,13 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false)
   const [selectedMerchant, setSelectedMerchant] = useState<DebtData | null>(null)
   const [isMerchantDetailModalOpen, setIsMerchantDetailModalOpen] = useState(false)
+  const [isPaymentHistoryModalOpen, setIsPaymentHistoryModalOpen] = useState(false)
 
   // Revenue data
   const [revenueData, setRevenueData] = useState<RevenueData[]>([])
   const [filteredRevenueData, setFilteredRevenueData] = useState<RevenueData[]>([])
   const [revenueSources, setRevenueSources] = useState<RevenueSource[]>([])
+  const [selectedRevenueSource, setSelectedRevenueSource] = useState<string | null>(null)
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [totalTransactions, setTotalTransactions] = useState(0)
   const [averagePerTransaction, setAveragePerTransaction] = useState(0)
@@ -89,35 +100,306 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
   const [totalDebt, setTotalDebt] = useState(0)
   const [totalDebtors, setTotalDebtors] = useState(0)
   const [totalOverdue, setTotalOverdue] = useState(0)
+  // Debt table sorting & selection
+  const [debtSortKey, setDebtSortKey] = useState<"totalDebt" | "overdueDays">("overdueDays")
+  const [debtSortOrder, setDebtSortOrder] = useState<"asc" | "desc">("desc")
+  const [selectedDebtIds, setSelectedDebtIds] = useState<string[]>([])
+  const [isBulkNotificationOpen, setIsBulkNotificationOpen] = useState(false)
+
+  const { toast } = useToast()
 
   // Sample data
   useEffect(() => {
-    // Sample revenue data - thêm dữ liệu cho nhiều ngày hơn
+    // Sample revenue data - thêm dữ liệu cho nhiều ngày hơn với breakdown theo nguồn thu
     const sampleRevenueData: RevenueData[] = [
-      { date: "2025-07-15", amount: 18000000, transactionCount: 12 },
-      { date: "2025-07-16", amount: 22000000, transactionCount: 14 },
-      { date: "2025-07-17", amount: 19000000, transactionCount: 13 },
-      { date: "2025-07-18", amount: 24000000, transactionCount: 15 },
-      { date: "2025-07-19", amount: 26000000, transactionCount: 16 },
-      { date: "2025-07-20", amount: 28000000, transactionCount: 17 },
-      { date: "2025-07-21", amount: 30000000, transactionCount: 18 },
-      { date: "2025-07-22", amount: 32000000, transactionCount: 19 },
-      { date: "2025-07-23", amount: 34000000, transactionCount: 20 },
-      { date: "2025-07-24", amount: 36000000, transactionCount: 21 },
-      { date: "2025-07-25", amount: 38000000, transactionCount: 22 },
-      { date: "2025-07-26", amount: 40000000, transactionCount: 23 },
-      { date: "2025-07-27", amount: 42000000, transactionCount: 24 },
-      { date: "2025-07-28", amount: 44000000, transactionCount: 25 },
-      { date: "2025-07-29", amount: 46000000, transactionCount: 26 },
-      { date: "2025-07-30", amount: 48000000, transactionCount: 27 },
-      { date: "2025-07-31", amount: 50000000, transactionCount: 28 },
-      { date: "2025-08-01", amount: 25000000, transactionCount: 15 },
-      { date: "2025-08-02", amount: 32000000, transactionCount: 18 },
-      { date: "2025-08-03", amount: 28000000, transactionCount: 16 },
-      { date: "2025-08-04", amount: 35000000, transactionCount: 20 },
-      { date: "2025-08-05", amount: 40000000, transactionCount: 22 },
-      { date: "2025-08-06", amount: 38000000, transactionCount: 21 },
-      { date: "2025-08-07", amount: 42000000, transactionCount: 23 },
+      { 
+        date: "2025-07-15", 
+        amount: 18000000, 
+        transactionCount: 12,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 8100000, transactionCount: 5 },
+          "Phí điện, nước": { amount: 5760000, transactionCount: 4 },
+          "Phí vệ sinh": { amount: 2340000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 1080000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 720000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-16", 
+        amount: 22000000, 
+        transactionCount: 14,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 9900000, transactionCount: 6 },
+          "Phí điện, nước": { amount: 7040000, transactionCount: 5 },
+          "Phí vệ sinh": { amount: 2860000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 1320000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 880000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-17", 
+        amount: 19000000, 
+        transactionCount: 13,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 8550000, transactionCount: 5 },
+          "Phí điện, nước": { amount: 6080000, transactionCount: 4 },
+          "Phí vệ sinh": { amount: 2470000, transactionCount: 3 },
+          "Phí gửi xe": { amount: 1140000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 760000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-18", 
+        amount: 24000000, 
+        transactionCount: 15,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 10800000, transactionCount: 7 },
+          "Phí điện, nước": { amount: 7680000, transactionCount: 5 },
+          "Phí vệ sinh": { amount: 3120000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 1440000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 960000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-19", 
+        amount: 26000000, 
+        transactionCount: 16,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 11700000, transactionCount: 7 },
+          "Phí điện, nước": { amount: 8320000, transactionCount: 6 },
+          "Phí vệ sinh": { amount: 3380000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 1560000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1040000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-20", 
+        amount: 28000000, 
+        transactionCount: 17,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 12600000, transactionCount: 8 },
+          "Phí điện, nước": { amount: 8960000, transactionCount: 6 },
+          "Phí vệ sinh": { amount: 3640000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 1680000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1120000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-21", 
+        amount: 30000000, 
+        transactionCount: 18,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 13500000, transactionCount: 8 },
+          "Phí điện, nước": { amount: 9600000, transactionCount: 7 },
+          "Phí vệ sinh": { amount: 3900000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 1800000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1200000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-22", 
+        amount: 32000000, 
+        transactionCount: 19,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 14400000, transactionCount: 9 },
+          "Phí điện, nước": { amount: 10240000, transactionCount: 7 },
+          "Phí vệ sinh": { amount: 4160000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 1920000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1280000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-23", 
+        amount: 34000000, 
+        transactionCount: 20,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 15300000, transactionCount: 9 },
+          "Phí điện, nước": { amount: 10880000, transactionCount: 8 },
+          "Phí vệ sinh": { amount: 4420000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2040000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1360000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-24", 
+        amount: 36000000, 
+        transactionCount: 21,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 16200000, transactionCount: 10 },
+          "Phí điện, nước": { amount: 11520000, transactionCount: 8 },
+          "Phí vệ sinh": { amount: 4680000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2160000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1440000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-25", 
+        amount: 38000000, 
+        transactionCount: 22,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 17100000, transactionCount: 10 },
+          "Phí điện, nước": { amount: 12160000, transactionCount: 9 },
+          "Phí vệ sinh": { amount: 4940000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2280000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1520000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-26", 
+        amount: 40000000, 
+        transactionCount: 23,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 18000000, transactionCount: 11 },
+          "Phí điện, nước": { amount: 12800000, transactionCount: 9 },
+          "Phí vệ sinh": { amount: 5200000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2400000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1600000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-27", 
+        amount: 42000000, 
+        transactionCount: 24,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 18900000, transactionCount: 11 },
+          "Phí điện, nước": { amount: 13440000, transactionCount: 10 },
+          "Phí vệ sinh": { amount: 5460000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2520000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1680000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-28", 
+        amount: 44000000, 
+        transactionCount: 25,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 19800000, transactionCount: 12 },
+          "Phí điện, nước": { amount: 14080000, transactionCount: 10 },
+          "Phí vệ sinh": { amount: 5720000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2640000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1760000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-29", 
+        amount: 46000000, 
+        transactionCount: 26,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 20700000, transactionCount: 12 },
+          "Phí điện, nước": { amount: 14720000, transactionCount: 11 },
+          "Phí vệ sinh": { amount: 5980000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2760000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1840000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-30", 
+        amount: 48000000, 
+        transactionCount: 27,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 21600000, transactionCount: 13 },
+          "Phí điện, nước": { amount: 15360000, transactionCount: 11 },
+          "Phí vệ sinh": { amount: 6240000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2880000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1920000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-07-31", 
+        amount: 50000000, 
+        transactionCount: 28,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 22500000, transactionCount: 13 },
+          "Phí điện, nước": { amount: 16000000, transactionCount: 12 },
+          "Phí vệ sinh": { amount: 6500000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 3000000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 2000000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-08-01", 
+        amount: 25000000, 
+        transactionCount: 15,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 11250000, transactionCount: 7 },
+          "Phí điện, nước": { amount: 8000000, transactionCount: 5 },
+          "Phí vệ sinh": { amount: 3250000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 1500000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1000000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-08-02", 
+        amount: 32000000, 
+        transactionCount: 18,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 14400000, transactionCount: 9 },
+          "Phí điện, nước": { amount: 10240000, transactionCount: 7 },
+          "Phí vệ sinh": { amount: 4160000, transactionCount: 1 },
+          "Phí gửi xe": { amount: 1920000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1280000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-08-03", 
+        amount: 28000000, 
+        transactionCount: 16,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 12600000, transactionCount: 8 },
+          "Phí điện, nước": { amount: 8960000, transactionCount: 6 },
+          "Phí vệ sinh": { amount: 3640000, transactionCount: 1 },
+          "Phí gửi xe": { amount: 1680000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1120000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-08-04", 
+        amount: 35000000, 
+        transactionCount: 20,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 15750000, transactionCount: 10 },
+          "Phí điện, nước": { amount: 11200000, transactionCount: 8 },
+          "Phí vệ sinh": { amount: 4550000, transactionCount: 1 },
+          "Phí gửi xe": { amount: 2100000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1400000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-08-05", 
+        amount: 40000000, 
+        transactionCount: 22,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 18000000, transactionCount: 11 },
+          "Phí điện, nước": { amount: 12800000, transactionCount: 9 },
+          "Phí vệ sinh": { amount: 5200000, transactionCount: 1 },
+          "Phí gửi xe": { amount: 2400000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1600000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-08-06", 
+        amount: 38000000, 
+        transactionCount: 21,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 17100000, transactionCount: 10 },
+          "Phí điện, nước": { amount: 12160000, transactionCount: 8 },
+          "Phí vệ sinh": { amount: 4940000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2280000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1520000, transactionCount: 0 }
+        }
+      },
+      { 
+        date: "2025-08-07", 
+        amount: 42000000, 
+        transactionCount: 23,
+        sourceBreakdown: {
+          "Phí mặt bằng": { amount: 18900000, transactionCount: 11 },
+          "Phí điện, nước": { amount: 13440000, transactionCount: 9 },
+          "Phí vệ sinh": { amount: 5460000, transactionCount: 2 },
+          "Phí gửi xe": { amount: 2520000, transactionCount: 1 },
+          "Phí quảng cáo": { amount: 1680000, transactionCount: 0 }
+        }
+      },
     ]
 
     const sampleRevenueSources: RevenueSource[] = [
@@ -205,7 +487,6 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
 
     setRevenueData(sampleRevenueData)
     setFilteredRevenueData(sampleRevenueData)
-    setRevenueSources(sampleRevenueSources)
     setDebtData(sampleDebtData)
     setFilteredDebtData(sampleDebtData)
 
@@ -225,6 +506,38 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
     setTotalDebt(totalDebtAmount)
     setTotalDebtors(totalDebtorsCount)
     setTotalOverdue(totalOverdueAmount)
+
+    // Calculate initial revenue sources
+    const sourceMap = new Map<string, { amount: number; transactionCount: number }>()
+    
+    sampleRevenueData.forEach(item => {
+      if (item.sourceBreakdown) {
+        Object.entries(item.sourceBreakdown).forEach(([sourceType, data]) => {
+          if (sourceMap.has(sourceType)) {
+            const existing = sourceMap.get(sourceType)!
+            sourceMap.set(sourceType, {
+              amount: existing.amount + data.amount,
+              transactionCount: existing.transactionCount + data.transactionCount
+            })
+          } else {
+            sourceMap.set(sourceType, {
+              amount: data.amount,
+              transactionCount: data.transactionCount
+            })
+          }
+        })
+      }
+    })
+
+    const initialRevenueSources: RevenueSource[] = Array.from(sourceMap.entries()).map(([type, data], index) => ({
+      id: (index + 1).toString(),
+      type,
+      transactionCount: data.transactionCount,
+      totalAmount: data.amount,
+      percentage: totalRev > 0 ? Math.round((data.amount / totalRev) * 100) : 0
+    }))
+
+    setRevenueSources(initialRevenueSources)
   }, [])
 
   const handleQuickDateFilter = (filterType: string) => {
@@ -268,6 +581,14 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
     setActiveDateFilter("")
   }
 
+  const handleRevenueSourceClick = (sourceType: string) => {
+    if (selectedRevenueSource === sourceType) {
+      setSelectedRevenueSource(null) // Clear filter if clicking the same source
+    } else {
+      setSelectedRevenueSource(sourceType)
+    }
+  }
+
   const applyRevenueFilters = () => {
     let filtered = [...revenueData]
 
@@ -292,6 +613,24 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
       })
     }
 
+    // Apply cross-filtering based on selected revenue source
+    if (selectedRevenueSource) {
+      // First, filter out dates that don't have data for the selected source
+      filtered = filtered.filter(item => 
+        item.sourceBreakdown && item.sourceBreakdown[selectedRevenueSource]
+      )
+      
+      // Then, update the data to show only the selected source's data
+      filtered = filtered.map(item => {
+        const sourceData = item.sourceBreakdown![selectedRevenueSource]
+        return {
+          ...item,
+          amount: sourceData.amount,
+          transactionCount: sourceData.transactionCount
+        }
+      })
+    }
+
     setFilteredRevenueData(filtered)
 
     // Recalculate totals based on filtered data
@@ -300,6 +639,38 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
     setTotalRevenue(totalRev)
     setTotalTransactions(totalTrans)
     setAveragePerTransaction(totalTrans > 0 ? totalRev / totalTrans : 0)
+
+    // Recalculate revenue sources based on filtered data
+    const sourceMap = new Map<string, { amount: number; transactionCount: number }>()
+    
+    filtered.forEach(item => {
+      if (item.sourceBreakdown) {
+        Object.entries(item.sourceBreakdown).forEach(([sourceType, data]) => {
+          if (sourceMap.has(sourceType)) {
+            const existing = sourceMap.get(sourceType)!
+            sourceMap.set(sourceType, {
+              amount: existing.amount + data.amount,
+              transactionCount: existing.transactionCount + data.transactionCount
+            })
+          } else {
+            sourceMap.set(sourceType, {
+              amount: data.amount,
+              transactionCount: data.transactionCount
+            })
+          }
+        })
+      }
+    })
+
+    const updatedRevenueSources: RevenueSource[] = Array.from(sourceMap.entries()).map(([type, data], index) => ({
+      id: (index + 1).toString(),
+      type,
+      transactionCount: data.transactionCount,
+      totalAmount: data.amount,
+      percentage: totalRev > 0 ? Math.round((data.amount / totalRev) * 100) : 0
+    }))
+
+    setRevenueSources(updatedRevenueSources)
   }
 
   const handleExportExcel = () => {
@@ -346,8 +717,32 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
   const handleSendNotificationConfirm = () => {
     // Simulate sending notification
     console.log("Sending notification to:", selectedMerchant)
+    
+    // Show success toast
+    toast({
+      title: "Gửi thông báo thành công!",
+      description: `Đã gửi nhắc nợ cho ${selectedMerchant?.merchantName} (${selectedMerchant?.stallCode})`,
+      variant: "success",
+    })
+    
     setIsNotificationModalOpen(false)
     setSelectedMerchant(null)
+  }
+
+  const handleViewPaymentHistory = () => {
+    setIsPaymentHistoryModalOpen(true)
+  }
+
+  const handleExportMerchantReport = () => {
+    // Simulate exporting report
+    console.log("Exporting report for:", selectedMerchant)
+    
+    // Show success toast
+    toast({
+      title: "Xuất báo cáo thành công!",
+      description: `Đã xuất báo cáo chi tiết cho ${selectedMerchant?.merchantName} (${selectedMerchant?.stallCode})`,
+      variant: "success",
+    })
   }
 
   const applyDebtFilters = () => {
@@ -382,6 +777,16 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
       )
     }
 
+    // Sorting
+    const getSortValue = (item: DebtData): number => {
+      return debtSortKey === "totalDebt" ? item.totalDebt : item.overdueDays
+    }
+    filtered.sort((a, b) => {
+      const va = getSortValue(a)
+      const vb = getSortValue(b)
+      return debtSortOrder === "asc" ? va - vb : vb - va
+    })
+
     setFilteredDebtData(filtered)
   }
 
@@ -389,9 +794,42 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
     applyDebtFilters()
   }, [zoneFilter, overdueFilter, searchTerm, activeTab])
 
+  // Re-apply sorting when sort state changes
+  useEffect(() => {
+    applyDebtFilters()
+  }, [debtSortKey, debtSortOrder])
+
+  const toggleDebtSort = (key: "totalDebt" | "overdueDays") => {
+    if (debtSortKey === key) {
+      setDebtSortOrder(prev => (prev === "asc" ? "desc" : "asc"))
+    } else {
+      setDebtSortKey(key)
+      setDebtSortOrder("desc")
+    }
+  }
+
+  const allVisibleSelected = filteredDebtData.length > 0 && filteredDebtData.every(d => selectedDebtIds.includes(d.id))
+  const toggleSelectAllVisible = () => {
+    if (allVisibleSelected) {
+      setSelectedDebtIds(prev => prev.filter(id => !filteredDebtData.some(d => d.id === id)))
+    } else {
+      const visibleIds = filteredDebtData.map(d => d.id)
+      setSelectedDebtIds(prev => Array.from(new Set([...prev, ...visibleIds])))
+    }
+  }
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedDebtIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const handleSendBulkNotifications = () => {
+    if (selectedDebtIds.length === 0) return
+    setIsBulkNotificationOpen(true)
+  }
+
   useEffect(() => {
     applyRevenueFilters()
-  }, [dateFrom, dateTo, revenueData])
+  }, [dateFrom, dateTo, revenueData, selectedRevenueSource])
 
   const getOverdueBadge = (days: number) => {
     if (days === 0) {
@@ -432,7 +870,7 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="revenue" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
-            Báo cáo Thu - Chi
+            Báo cáo Doanh thu
           </TabsTrigger>
           <TabsTrigger value="debt" className="flex items-center gap-2">
             <PieChart className="w-4 h-4" />
@@ -608,6 +1046,12 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
                        dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
                        activeDot={{ r: 6, stroke: "#10b981", strokeWidth: 2 }}
                      />
+                     <Brush 
+                       dataKey="date" 
+                       height={30} 
+                       stroke="#10b981"
+                       tickFormatter={(value) => format(new Date(value), "dd/MM")}
+                     />
                    </LineChart>
                  </ResponsiveContainer>
                </div>
@@ -649,6 +1093,12 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
                        fill="#3b82f6" 
                        radius={[4, 4, 0, 0]}
                      />
+                     <Brush 
+                       dataKey="date" 
+                       height={30} 
+                       stroke="#3b82f6"
+                       tickFormatter={(value) => format(new Date(value), "dd/MM")}
+                     />
                    </BarChart>
                  </ResponsiveContainer>
                </div>
@@ -658,7 +1108,19 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
            {/* Revenue Sources Table */}
           <Card>
             <CardHeader>
+              <div className="flex items-center justify-between">
               <CardTitle>Phân tích Nguồn thu</CardTitle>
+                {selectedRevenueSource && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSelectedRevenueSource(null)}
+                    className="text-red-600 border-red-600 hover:bg-red-50"
+                  >
+                    Xóa bộ lọc nguồn thu
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -684,12 +1146,23 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {revenueSources.map((source, index) => (
-                      <tr key={source.id} className="hover:bg-gray-50">
+                      <tr 
+                        key={source.id} 
+                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                          selectedRevenueSource === source.type ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                        }`}
+                        onClick={() => handleRevenueSourceClick(source.type)}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {index + 1}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <div className="flex items-center gap-2">
                           {source.type}
+                            {selectedRevenueSource === source.type && (
+                              <Badge className="bg-blue-100 text-blue-800 text-xs">Đang lọc</Badge>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {source.transactionCount}
@@ -825,16 +1298,96 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
             </Card>
           </div>
 
+          {/* Debt Overview Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pie: Debt by Zone */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Tỷ trọng công nợ theo khu vực</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RePieChart>
+                      <Tooltip formatter={(value: number) => [`${value.toLocaleString()} VND`, "Công nợ"]} />
+                      <RePie
+                        data={Object.entries(
+                          filteredDebtData.reduce((acc: Record<string, number>, item) => {
+                            acc[item.zone] = (acc[item.zone] || 0) + item.totalDebt
+                            return acc
+                          }, {})
+                        ).map(([zone, amount]) => ({ name: zone, value: amount }))}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={2}
+                        label={entry => `${Math.round((entry.value as number) / Math.max(1, filteredDebtData.reduce((s, i)=> s + i.totalDebt, 0)) * 100)}%`}
+                      >
+                        {Object.entries(
+                          filteredDebtData.reduce((acc: Record<string, number>, item) => {
+                            acc[item.zone] = (acc[item.zone] || 0) + item.totalDebt
+                            return acc
+                          }, {})
+                        ).map(([zone], index) => (
+                          <Cell key={zone} fill={["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#a3e635"][index % 8]} />
+                        ))}
+                      </RePie>
+                    </RePieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Horizontal Bar: Top 5 Debtors */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Top 5 tiểu thương có công nợ cao nhất</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[...filteredDebtData]
+                        .sort((a, b) => b.totalDebt - a.totalDebt)
+                        .slice(0, 5)
+                        .map(item => ({
+                          name: `${item.merchantName} (${item.stallCode})`,
+                          value: item.totalDebt
+                        }))}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" tickFormatter={(v) => `${Math.round(v / 1_000_000)}M`} />
+                      <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(value: number) => [`${value.toLocaleString()} VND`, "Công nợ"]} />
+                      <Bar dataKey="value" fill="#ef4444" radius={[4, 4, 4, 4]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Debt Details Table */}
           <Card>
             <CardHeader>
+              <div className="flex items-center justify-between">
               <CardTitle>Chi tiết Công nợ</CardTitle>
+                <Button onClick={handleSendBulkNotifications} disabled={selectedDebtIds.length === 0} className="bg-red-600 hover:bg-red-700">
+                  Gửi nhắc nợ hàng loạt ({selectedDebtIds.length})
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <Checkbox checked={allVisibleSelected} onCheckedChange={toggleSelectAllVisible} />
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         STT
                       </th>
@@ -847,11 +1400,23 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Số điện thoại
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                        onClick={() => toggleDebtSort("totalDebt")}
+                      >
                         Tổng Nợ hiện tại (VND)
+                        {debtSortKey === "totalDebt" && (
+                          <span className="ml-1 text-gray-400">{debtSortOrder === "asc" ? "▲" : "▼"}</span>
+                        )}
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                        onClick={() => toggleDebtSort("overdueDays")}
+                      >
                         Số ngày Quá hạn
+                        {debtSortKey === "overdueDays" && (
+                          <span className="ml-1 text-gray-400">{debtSortOrder === "asc" ? "▲" : "▼"}</span>
+                        )}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Hành động
@@ -861,6 +1426,9 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredDebtData.map((debt, index) => (
                       <tr key={debt.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <Checkbox checked={selectedDebtIds.includes(debt.id)} onCheckedChange={() => toggleSelectOne(debt.id)} />
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {index + 1}
                         </td>
@@ -906,6 +1474,41 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
               </div>
             </CardContent>
           </Card>
+          {/* Bulk Notification Dialog */}
+          <Dialog open={isBulkNotificationOpen} onOpenChange={setIsBulkNotificationOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Gửi nhắc nợ hàng loạt</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">Bạn sắp gửi nhắc nợ tới {selectedDebtIds.length} tiểu thương.</p>
+                <div className="max-h-40 overflow-auto bg-gray-50 rounded p-2 text-sm">
+                  <ul className="list-disc pl-5">
+                    {filteredDebtData.filter(d => selectedDebtIds.includes(d.id)).map(d => (
+                      <li key={d.id}>{d.merchantName} ({d.stallCode}) - {d.totalDebt.toLocaleString()} VND</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsBulkNotificationOpen(false)}>Hủy</Button>
+                  <Button className="bg-red-600 hover:bg-red-700" onClick={() => { 
+                    console.log("Bulk notify: ", selectedDebtIds); 
+                    
+                    // Show success toast
+                    toast({
+                      title: "Gửi nhắc nợ hàng loạt thành công!",
+                      description: `Đã gửi thông báo nhắc nợ cho ${selectedDebtIds.length} tiểu thương`,
+                      variant: "success",
+                    })
+                    
+                    setIsBulkNotificationOpen(false); 
+                  }}>
+                    Gửi nhắc nợ
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
 
@@ -1084,19 +1687,166 @@ export function ReportsAnalytics({ onBack }: ReportsAnalyticsProps) {
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button variant="outline" className="flex-1">
+                  <Button variant="outline" className="flex-1" onClick={handleViewPaymentHistory}>
                     <FileText className="w-4 h-4 mr-2" />
                     Xem lịch sử thanh toán
                   </Button>
-                  <Button className="flex-1 bg-red-600 hover:bg-red-700">
-                    <Bell className="w-4 h-4 mr-2" />
-                    Gửi nhắc nợ
+                  <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={handleExportMerchantReport}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Xuất báo cáo chi tiết
                   </Button>
                 </div>
               </div>
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Payment History Sheet */}
+        <Sheet open={isPaymentHistoryModalOpen} onOpenChange={setIsPaymentHistoryModalOpen}>
+          <SheetContent side="right" className="w-[800px] overflow-y-auto p-0">
+            <SheetHeader className="space-y-4 pb-6 border-b p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <FileText className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <SheetTitle className="text-xl font-bold">
+                    Lịch sử thanh toán - {selectedMerchant?.merchantName}
+                  </SheetTitle>
+                  <p className="text-sm text-gray-600">
+                    Chi tiết các lần thanh toán và thống kê
+                  </p>
+                </div>
+              </div>
+            </SheetHeader>
+            {selectedMerchant && (
+              <div className="p-6 space-y-6">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-green-50 p-4 rounded-lg border-l-4 border-l-green-500">
+                    <div className="text-sm text-gray-600">Tổng đã thanh toán</div>
+                    <div className="font-bold text-lg text-green-600">45,200,000 VND</div>
+                  </div>
+                  <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-l-blue-500">
+                    <div className="text-sm text-gray-600">Số lần thanh toán</div>
+                    <div className="font-bold text-lg text-blue-600">24 lần</div>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-lg border-l-4 border-l-orange-500">
+                    <div className="text-sm text-gray-600">Lần thanh toán gần nhất</div>
+                    <div className="font-bold text-lg text-orange-600">15/07/2025</div>
+                  </div>
+                  <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-l-purple-500">
+                    <div className="text-sm text-gray-600">Trung bình/lần</div>
+                    <div className="font-bold text-lg text-purple-600">1,883,333 VND</div>
+                  </div>
+                </div>
+
+                {/* Payment History Table */}
+                <div>
+                  <h4 className="font-medium mb-3">Chi tiết các lần thanh toán</h4>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Ngày thanh toán</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Loại phí</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Số tiền</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Phương thức</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Trạng thái</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm">15/07/2025</td>
+                          <td className="px-4 py-3 text-sm">Phí mặt bằng</td>
+                          <td className="px-4 py-3 text-sm font-medium">2,500,000 VND</td>
+                          <td className="px-4 py-3 text-sm">Chuyển khoản</td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-green-100 text-green-800">Thành công</Badge>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm">10/07/2025</td>
+                          <td className="px-4 py-3 text-sm">Phí điện, nước</td>
+                          <td className="px-4 py-3 text-sm font-medium">1,200,000 VND</td>
+                          <td className="px-4 py-3 text-sm">Tiền mặt</td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-green-100 text-green-800">Thành công</Badge>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm">05/07/2025</td>
+                          <td className="px-4 py-3 text-sm">Phí vệ sinh</td>
+                          <td className="px-4 py-3 text-sm font-medium">800,000 VND</td>
+                          <td className="px-4 py-3 text-sm">Chuyển khoản</td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-green-100 text-green-800">Thành công</Badge>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm">01/07/2025</td>
+                          <td className="px-4 py-3 text-sm">Phí mặt bằng</td>
+                          <td className="px-4 py-3 text-sm font-medium">2,500,000 VND</td>
+                          <td className="px-4 py-3 text-sm">Tiền mặt</td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-green-100 text-green-800">Thành công</Badge>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm">25/06/2025</td>
+                          <td className="px-4 py-3 text-sm">Phí điện, nước</td>
+                          <td className="px-4 py-3 text-sm font-medium">1,500,000 VND</td>
+                          <td className="px-4 py-3 text-sm">Chuyển khoản</td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-green-100 text-green-800">Thành công</Badge>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Chart */}
+                <div>
+                  <h4 className="font-medium mb-3">Biểu đồ thanh toán theo tháng</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={[
+                        { month: "T3", amount: 4500000 },
+                        { month: "T4", amount: 5200000 },
+                        { month: "T5", amount: 4800000 },
+                        { month: "T6", amount: 6100000 },
+                        { month: "T7", amount: 4520000 }
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip formatter={(value) => `${(Number(value) / 1000000).toFixed(1)}M VND`} />
+                        <Bar dataKey="amount" fill="#3B82F6" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setIsPaymentHistoryModalOpen(false)}>
+                    Đóng
+                  </Button>
+                  <Button onClick={() => {
+                    toast({
+                      title: "Xuất lịch sử thành công!",
+                      description: `Đã xuất lịch sử thanh toán cho ${selectedMerchant.merchantName}`,
+                      variant: "success",
+                    })
+                  }}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Xuất báo cáo
+                  </Button>
+                </div>
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
     </div>
   )
 } 

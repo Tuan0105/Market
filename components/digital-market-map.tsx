@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import React, { useState, useRef, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -20,49 +20,28 @@ import {
   Plus,
   Save,
   Edit,
-  Trash2
+  Trash2,
+  Eye,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react"
+import { StallManagementDetail } from "./stall-management-detail"
+import { useStallData, Stall, Zone, Floor, MarketConfig } from "@/lib/stall-data-context"
 
 interface DigitalMarketMapProps {
   onBack: () => void
+  onNavigateToStallManagement?: (zone: Zone, floorId: string) => void
 }
 
-interface MarketConfig {
-  name: string
-  floors: Floor[]
-}
+export function DigitalMarketMap({ onBack, onNavigateToStallManagement }: DigitalMarketMapProps) {
+  const { 
+    marketConfig, 
+    setMarketConfig, 
+    updateStallInZone, 
+    deleteStallFromZone,
+    syncStallData 
+  } = useStallData()
 
-interface Floor {
-  id: string
-  name: string
-  zones: Zone[]
-}
-
-interface Zone {
-  id: string
-  name: string
-  category: string
-  color: string
-  stalls: Stall[]
-}
-
-interface Stall {
-  id: string
-  code: string
-  x: number
-  y: number
-  width: number
-  height: number
-  merchantName: string
-  businessType: string
-  status: "occupied" | "vacant" | "expiring" | "maintenance"
-  category: string
-  monthlyRent: number
-  area: number
-  contractEndDate?: string
-}
-
-export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
   const [isConfigMode, setIsConfigMode] = useState(true)
   const [selectedStall, setSelectedStall] = useState<Stall | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
@@ -74,39 +53,32 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [showLegend, setShowLegend] = useState(true)
   const [selectedFloor, setSelectedFloor] = useState<string>("1")
+  const [showLivePreview, setShowLivePreview] = useState(true)
+  
+  // New state for stall management detail page
+  const [isStallManagementDetailOpen, setIsStallManagementDetailOpen] = useState(false)
+  const [currentZone, setCurrentZone] = useState<Zone | null>(null)
+  const [currentFloorId, setCurrentFloorId] = useState<string>("")
 
-  // Market configuration state
-  const [marketConfig, setMarketConfig] = useState<MarketConfig>({
-    name: "Chợ Trung Tâm",
-    floors: [
-      {
-        id: "1",
-        name: "Tầng 1",
-        zones: [
-          {
-            id: "A",
-            name: "Khu A - Thực phẩm tươi sống",
-            category: "food",
-            color: "#10b981",
-            stalls: [
-              { id: "A01", code: "A01", x: 80, y: 80, width: 40, height: 30, merchantName: "Nguyễn Thị Lan", businessType: "Thực phẩm tươi sống", status: "occupied", category: "food", monthlyRent: 5000000, area: 12, contractEndDate: "2025-12-31" },
-              { id: "A02", code: "A02", x: 140, y: 80, width: 40, height: 30, merchantName: "", businessType: "", status: "vacant", category: "food", monthlyRent: 5500000, area: 12 },
-            ]
-          },
-          {
-            id: "B",
-            name: "Khu B - Rau củ quả",
-            category: "vegetables",
-            color: "#84cc16",
-            stalls: [
-              { id: "B01", code: "B01", x: 430, y: 80, width: 35, height: 25, merchantName: "Nguyễn Thị Mai", businessType: "Rau củ quả", status: "occupied", category: "vegetables", monthlyRent: 3500000, area: 8, contractEndDate: "2025-11-30" },
-            ]
-          }
-        ]
-      }
-    ]
+  // New state for map navigation
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 })
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+
+  // New state for tooltip
+  const [tooltip, setTooltip] = useState<{
+    show: boolean
+    content: string
+    x: number
+    y: number
+  }>({
+    show: false,
+    content: "",
+    x: 0,
+    y: 0
   })
-
+  
   // Update editingZone when marketConfig changes
   React.useEffect(() => {
     if (editingZone && isStallModalOpen) {
@@ -266,8 +238,53 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
   }
 
   const handleEditZone = (zone: Zone) => {
-    setEditingZone(zone)
-    setIsStallModalOpen(true)
+    if (onNavigateToStallManagement) {
+      const floor = marketConfig.floors.find(f => 
+        f.zones.some(z => z.id === zone.id)
+      )
+      if (floor) {
+        onNavigateToStallManagement(zone, floor.id)
+      }
+    } else {
+      // Navigate to detail page instead of modal
+      const floor = marketConfig.floors.find(f => 
+        f.zones.some(z => z.id === zone.id)
+      )
+      if (floor) {
+        setCurrentZone(zone)
+        setCurrentFloorId(floor.id)
+        setIsStallManagementDetailOpen(true)
+      }
+    }
+  }
+
+  const handleUpdateZone = (updatedZone: Zone) => {
+    const updatedFloors = marketConfig.floors.map(f => 
+      f.id === currentFloorId 
+        ? {
+            ...f,
+            zones: f.zones.map(z => 
+              z.id === updatedZone.id 
+                ? updatedZone
+                : z
+            )
+          }
+        : f
+    )
+
+    setMarketConfig({
+      ...marketConfig,
+      floors: updatedFloors
+    })
+
+    // Update current zone state
+    setCurrentZone(updatedZone)
+  }
+
+  const handleBackFromStallManagement = () => {
+    setIsStallManagementDetailOpen(false)
+    setCurrentZone(null)
+    setCurrentFloorId("")
   }
 
   const handleAddStall = (zoneId: string, floorId: string) => {
@@ -321,6 +338,18 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
     }, 100)
   }
 
+  // If stall management detail is open, show that page
+  if (isStallManagementDetailOpen && currentZone) {
+    return (
+      <StallManagementDetail
+        zone={currentZone}
+        floorId={currentFloorId}
+        onBack={handleBackFromStallManagement}
+        onUpdateZone={handleUpdateZone}
+      />
+    )
+  }
+
   if (isConfigMode) {
     return (
       <div className="p-6 space-y-6">
@@ -340,208 +369,314 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
               <p className="text-gray-600">Thiết lập cấu trúc chợ và gian hàng</p>
             </div>
           </div>
-          <Button
-            onClick={handleSaveConfig}
-            className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
-          >
-            <Save className="w-4 h-4" />
-            Lưu và Xem sơ đồ
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowLivePreview(!showLivePreview)}
+              className="flex items-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              {showLivePreview ? "Ẩn xem trước" : "Hiện xem trước"}
+            </Button>
+            <Button
+              onClick={handleSaveConfig}
+              className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              Lưu và Xem sơ đồ
+            </Button>
+          </div>
         </div>
 
-        {/* Market Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
-              Thông tin Chợ
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="marketName">Tên chợ</Label>
-                <Input
-                  id="marketName"
-                  value={marketConfig.name}
-                  onChange={(e) => setMarketConfig({...marketConfig, name: e.target.value})}
-                  placeholder="Nhập tên chợ..."
-                />
-              </div>
-              <div>
-                <Label>Số tầng</Label>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-sm text-gray-600">{marketConfig.floors.length} tầng</span>
-                  <Button
-                    size="sm"
-                    onClick={handleAddFloor}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Thêm tầng
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Floors Configuration */}
-        <div className="space-y-4">
-          {marketConfig.floors.map((floor) => (
-            <Card key={floor.id}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Configuration Panel */}
+          <div className="space-y-6">
+            {/* Market Info */}
+            <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <span>🏢</span>
-                    {floor.name}
-                  </CardTitle>
-                  <Button
-                    size="sm"
-                    onClick={() => handleAddZone(floor.id)}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Thêm khu vực
-                  </Button>
-                </div>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
+                  Thông tin Chợ
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {floor.zones.map((zone) => (
-                    <div key={zone.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded"
-                            style={{ backgroundColor: zone.color }}
-                          ></div>
-                          <span className="font-medium">{zone.name}</span>
-                          <Badge variant="outline">{zone.stalls.length} gian hàng</Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditZone(zone)}
-                            className="flex items-center gap-1"
-                          >
-                            <Edit className="w-3 h-3" />
-                            Quản lý gian hàng
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddStall(zone.id, floor.id)}
-                            className="flex items-center gap-1"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Thêm gian hàng
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label>Tên khu vực</Label>
-                          <Input
-                            value={zone.name}
-                            onChange={(e) => {
-                              const updatedFloors = marketConfig.floors.map(f => 
-                                f.id === floor.id 
-                                  ? {
-                                      ...f,
-                                      zones: f.zones.map(z => 
-                                        z.id === zone.id 
-                                          ? { ...z, name: e.target.value }
-                                          : z
-                                      )
-                                    }
-                                  : f
-                              )
-                              setMarketConfig({...marketConfig, floors: updatedFloors})
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <Label>Loại hàng</Label>
-                          <Select
-                            value={zone.category}
-                            onValueChange={(value) => {
-                              const updatedFloors = marketConfig.floors.map(f => 
-                                f.id === floor.id 
-                                  ? {
-                                      ...f,
-                                      zones: f.zones.map(z => 
-                                        z.id === zone.id 
-                                          ? { ...z, category: value }
-                                          : z
-                                      )
-                                    }
-                                  : f
-                              )
-                              setMarketConfig({...marketConfig, floors: updatedFloors})
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="food">Thực phẩm</SelectItem>
-                              <SelectItem value="vegetables">Rau củ</SelectItem>
-                              <SelectItem value="meat">Thịt</SelectItem>
-                              <SelectItem value="seafood">Hải sản</SelectItem>
-                              <SelectItem value="spices">Gia vị</SelectItem>
-                              <SelectItem value="beverages">Đồ uống</SelectItem>
-                              <SelectItem value="household">Gia dụng</SelectItem>
-                              <SelectItem value="services">Dịch vụ</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Màu sắc</Label>
-                          <div className="flex gap-2 mt-2">
-                            {["#10b981", "#84cc16", "#ef4444", "#3b82f6", "#f59e0b", "#8b5cf6", "#6b7280", "#ec4899"].map((color) => (
-                              <button
-                                key={color}
-                                className={`w-6 h-6 rounded border-2 ${
-                                  zone.color === color ? "border-gray-900" : "border-gray-300"
-                                }`}
-                                style={{ backgroundColor: color }}
-                                onClick={() => {
-                                  const updatedFloors = marketConfig.floors.map(f => 
-                                    f.id === floor.id 
-                                      ? {
-                                          ...f,
-                                          zones: f.zones.map(z => 
-                                            z.id === zone.id 
-                                              ? { ...z, color }
-                                              : z
-                                          )
-                                        }
-                                      : f
-                                  )
-                                  setMarketConfig({...marketConfig, floors: updatedFloors})
-                                }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="marketName">Tên chợ</Label>
+                    <Input
+                      id="marketName"
+                      value={marketConfig.name}
+                      onChange={(e) => setMarketConfig({...marketConfig, name: e.target.value})}
+                      placeholder="Nhập tên chợ..."
+                    />
+                  </div>
+                  <div>
+                    <Label>Số tầng</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm text-gray-600">{marketConfig.floors.length} tầng</span>
+                      <Button
+                        size="sm"
+                        onClick={handleAddFloor}
+                        className="flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Thêm tầng
+                      </Button>
                     </div>
-                  ))}
-                  
-                  {floor.zones.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      Chưa có khu vực nào. Hãy thêm khu vực đầu tiên!
-                    </div>
-                  )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          ))}
+
+            {/* Floors Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Cấu hình Tầng và Khu vực</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {marketConfig.floors.map((floor) => (
+                  <div key={floor.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">{floor.name}</h3>
+                      <Button
+                        size="sm"
+                        onClick={() => handleAddZone(floor.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Thêm khu vực
+                      </Button>
+                    </div>
+                    
+                    {floor.zones.map((zone) => (
+                      <div key={zone.id} className="border rounded-lg p-4 mb-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-4 h-4 rounded"
+                              style={{ backgroundColor: zone.color }}
+                            ></div>
+                            <span className="font-medium">{zone.name}</span>
+                            <Badge variant="outline">{zone.stalls.length} gian hàng</Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditZone(zone)}
+                              className="flex items-center gap-1"
+                            >
+                              <Edit className="w-3 h-3" />
+                              Quản lý gian hàng
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddStall(zone.id, floor.id)}
+                              className="flex items-center gap-1"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Thêm gian hàng
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <Label>Tên khu vực</Label>
+                            <Input
+                              value={zone.name}
+                              onChange={(e) => {
+                                const updatedFloors = marketConfig.floors.map(f => 
+                                  f.id === floor.id 
+                                    ? {
+                                        ...f,
+                                        zones: f.zones.map(z => 
+                                          z.id === zone.id 
+                                            ? { ...z, name: e.target.value }
+                                            : z
+                                        )
+                                      }
+                                    : f
+                                )
+                                setMarketConfig({...marketConfig, floors: updatedFloors})
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label>Màu sắc</Label>
+                            <Input
+                              type="color"
+                              value={zone.color}
+                              onChange={(e) => {
+                                const updatedFloors = marketConfig.floors.map(f => 
+                                  f.id === floor.id 
+                                    ? {
+                                        ...f,
+                                        zones: f.zones.map(z => 
+                                          z.id === zone.id 
+                                            ? { ...z, color: e.target.value }
+                                            : z
+                                        )
+                                      }
+                                    : f
+                                )
+                                setMarketConfig({...marketConfig, floors: updatedFloors})
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Live Preview Panel */}
+          {showLivePreview && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="w-5 h-5" />
+                    Xem trước trực tiếp
+                  </CardTitle>
+                  <CardDescription>
+                    Sơ đồ sẽ cập nhật ngay lập tức khi bạn thay đổi cấu hình
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {/* Floor Selector for Preview */}
+                  <div className="mb-4">
+                    <Label className="text-sm font-medium text-gray-700">Chọn tầng để xem:</Label>
+                    <Select 
+                      value={selectedFloor} 
+                      onValueChange={setSelectedFloor}
+                    >
+                      <SelectTrigger className="w-full mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {marketConfig.floors.map((floor) => (
+                          <SelectItem key={floor.id} value={floor.id}>
+                            {floor.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="relative overflow-auto bg-gray-50 rounded-lg border-2 border-gray-200" style={{ height: "500px" }}>
+                    <div className="relative p-6">
+                      {/* Market Zones - Frame, Name, and Stalls */}
+                      {marketConfig.floors
+                        .find(f => f.id === selectedFloor)
+                        ?.zones.map((zone) => {
+                        // Calculate zone position based on zone index (horizontal layout)
+                        const currentFloor = marketConfig.floors.find(f => f.id === selectedFloor)
+                        const zoneIndex = currentFloor?.zones.indexOf(zone) || 0
+                        const zonesPerRow = 2 // 2 zones per row for preview
+                        const row = Math.floor(zoneIndex / zonesPerRow)
+                        const col = zoneIndex % zonesPerRow
+                        const zoneX = 50 + col * 300
+                        const zoneY = 50 + row * 200
+                        
+                        // Calculate dynamic zone size based on number of stalls
+                        const stallsPerRow = Math.floor((250 - 30) / (35 + 6)) // Calculate stalls per row
+                        const totalRows = Math.ceil(zone.stalls.length / stallsPerRow)
+                        const zoneWidth = 250 // Fixed width for preview
+                        const zoneHeight = Math.max(120, 25 + 15 + totalRows * (25 + 6) + 16) // Dynamic height with padding
+                        
+                        return (
+                          <div
+                            key={zone.id}
+                            className="absolute border-2 border-gray-300 rounded-lg bg-white shadow-lg"
+                            style={{
+                              left: zoneX,
+                              top: zoneY,
+                              width: zoneWidth,
+                              height: zoneHeight,
+                              backgroundColor: zone.color + '20' // Add transparency
+                            }}
+                          >
+                            {/* Zone Header */}
+                            <div 
+                              className="text-center py-2 px-3 border-b border-gray-300"
+                              style={{ backgroundColor: zone.color + '40' }}
+                            >
+                              <h3 className="font-bold text-sm text-gray-800">{zone.name}</h3>
+                              <p className="text-xs text-gray-600">{zone.stalls.length} gian hàng</p>
+                            </div>
+                            
+                            {/* Stalls Grid */}
+                            <div className="p-3">
+                              <div className="grid gap-1" style={{
+                                gridTemplateColumns: `repeat(${stallsPerRow}, 1fr)`,
+                                gridTemplateRows: `repeat(${totalRows}, 1fr)`
+                              }}>
+                                {zone.stalls.map((stall, stallIndex) => (
+                                  <div
+                                    key={stall.id}
+                                    className={`
+                                      border rounded text-xs text-center p-1 cursor-pointer transition-all
+                                      ${stall.status === 'occupied' ? 'bg-green-500 text-white' : ''}
+                                      ${stall.status === 'vacant' ? 'bg-gray-300 text-gray-700' : ''}
+                                      ${stall.status === 'expiring' ? 'bg-yellow-500 text-white' : ''}
+                                      ${stall.status === 'maintenance' ? 'bg-red-500 text-white' : ''}
+                                    `}
+                                    title={`${stall.code} - ${stall.merchantName || 'Chưa có tiểu thương'}`}
+                                  >
+                                    {stall.code}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                      
+                      {/* Show message if no zones in selected floor */}
+                      {marketConfig.floors.find(f => f.id === selectedFloor)?.zones.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="text-center text-gray-500">
+                            <p className="text-lg font-medium">Chưa có khu vực nào</p>
+                            <p className="text-sm">Hãy thêm khu vực cho {marketConfig.floors.find(f => f.id === selectedFloor)?.name}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Preview Legend */}
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold text-sm mb-2">Chú thích:</h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded"></div>
+                        <span>Đang thuê</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-gray-300 rounded"></div>
+                        <span>Còn trống</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                        <span>Sắp hết hạn</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded"></div>
+                        <span>Bảo trì</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
 
-        {/* Stall Management Modal */}
+        {/* Stall Management Modal - Keep as fallback */}
         <Dialog open={isStallModalOpen} onOpenChange={setIsStallModalOpen}>
           <DialogContent className="w-[95vw] h-[90vh] max-w-none overflow-y-auto">
             <DialogHeader>
@@ -891,6 +1026,78 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
     )
   }
 
+  // Mouse navigation handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0) { // Left click only
+      setIsDragging(true)
+      setDragStart({ x: e.clientX - mapOffset.x, y: e.clientY - mapOffset.y })
+    }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) {
+      setMapOffset({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      })
+    }
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? -0.1 : 0.1
+    setZoom(prev => Math.max(0.5, Math.min(2, prev + delta)))
+  }
+
+  // Tooltip handlers
+  const handleStallMouseEnter = (e: React.MouseEvent, stall: Stall) => {
+    const tooltipContent = `
+      <div class="space-y-1">
+        <div class="font-semibold">${stall.code}</div>
+        <div>Tiểu thương: ${stall.merchantName || 'Chưa có'}</div>
+        <div>Ngành hàng: ${stall.businessType || 'Chưa xác định'}</div>
+        <div>Hết hạn: ${formatDate(stall.contractEndDate || "")}</div>
+        <div>Trạng thái: ${getStatusText(stall.status)}</div>
+      </div>
+    `
+    setTooltip({
+      show: true,
+      content: tooltipContent,
+      x: e.clientX + 10,
+      y: e.clientY - 10
+    })
+  }
+
+  const handleStallMouseLeave = () => {
+    setTooltip({ show: false, content: "", x: 0, y: 0 })
+  }
+
+  // Handle edit from detail modal
+  const handleEditFromDetail = () => {
+    if (selectedStall) {
+      // Find the zone containing this stall
+      const floor = marketConfig.floors.find(f => 
+        f.zones.some(z => z.stalls.some(s => s.id === selectedStall.id))
+      )
+      const zone = floor?.zones.find(z => 
+        z.stalls.some(s => s.id === selectedStall.id)
+      )
+      
+      if (zone && floor) {
+        // Switch to config mode and navigate to stall management
+        setIsConfigMode(true)
+        setCurrentZone(zone)
+        setCurrentFloorId(floor.id)
+        setIsStallManagementDetailOpen(true)
+        setIsDetailModalOpen(false)
+      }
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -935,7 +1142,10 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setZoom(1)}
+            onClick={() => {
+              setZoom(1)
+              setMapOffset({ x: 0, y: 0 })
+            }}
           >
             <RotateCcw className="w-4 h-4" />
           </Button>
@@ -1025,49 +1235,58 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
       {/* Market Map */}
       <Card>
         <CardContent className="p-6">
-          <div className="relative overflow-auto bg-gray-50 rounded-lg border-2 border-gray-200" style={{ height: "600px" }}>
+          <div 
+            ref={mapContainerRef}
+            className="relative overflow-hidden bg-gray-50 rounded-lg border-2 border-gray-200 cursor-grab active:cursor-grabbing" 
+            style={{ height: "600px" }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+          >
             <div 
               className="relative"
               style={{ 
-                transform: `scale(${zoom})`,
+                transform: `scale(${zoom}) translate(${mapOffset.x}px, ${mapOffset.y}px)`,
                 transformOrigin: "top left"
               }}
             >
               {/* Market Zones - Frame, Name, and Stalls */}
-                             {zones.map((zone) => {
-                 // Calculate zone position based on zone index (horizontal layout)
-                 const zoneIndex = zones.indexOf(zone)
-                 const zonesPerRow = 3 // 3 zones per row
-                 const row = Math.floor(zoneIndex / zonesPerRow)
-                 const col = zoneIndex % zonesPerRow
-                 const zoneX = 50 + col * 350
-                 const zoneY = 50 + row * 250
-                 
-                 // Calculate dynamic zone size based on number of stalls
-                 const stallsPerRow = Math.floor((280 - 30) / (40 + 8)) // Calculate stalls per row
-                 const totalRows = Math.ceil(zone.stalls.length / stallsPerRow)
-                 const zoneWidth = 280 // Fixed width
-                 const zoneHeight = Math.max(140, 25 + 15 + totalRows * (30 + 8) + 16) // Dynamic height with padding
+              {zones.map((zone) => {
+                // Calculate zone position based on zone index (horizontal layout)
+                const zoneIndex = zones.indexOf(zone)
+                const zonesPerRow = 3 // 3 zones per row
+                const row = Math.floor(zoneIndex / zonesPerRow)
+                const col = zoneIndex % zonesPerRow
+                const zoneX = 50 + col * 350
+                const zoneY = 50 + row * 250
+                
+                // Calculate dynamic zone size based on number of stalls
+                const stallsPerRow = Math.floor((280 - 30) / (40 + 8)) // Calculate stalls per row
+                const totalRows = Math.ceil(zone.stalls.length / stallsPerRow)
+                const zoneWidth = 280 // Fixed width
+                const zoneHeight = Math.max(140, 25 + 15 + totalRows * (30 + 8) + 16) // Dynamic height with padding
                 
                 return (
-                                     <div
-                     key={`zone-${zone.id}`}
-                     className="absolute border-2 border-white shadow-lg rounded-lg overflow-hidden"
-                     style={{
-                       left: `${zoneX}px`,
-                       top: `${zoneY}px`,
-                       width: `${zoneWidth}px`,
-                       height: `${zoneHeight}px`,
-                       backgroundColor: zone.color,
-                       zIndex: 5,
-                       padding: "8px 0 8px 0", // Thêm padding trên dưới
-                     }}
-                   >
-                                         {/* Zone Name inside frame, top */}
-                     <div className="w-full h-6 flex flex-col items-center justify-center bg-opacity-80 mt-1" style={{backgroundColor: zone.color}}>
-                       <div className="font-bold text-white leading-none text-sm">{zone.id}</div>
-                       <div className="text-xs text-white opacity-90 leading-none">{zone.name.split(' - ')[1]}</div>
-                     </div>
+                  <div
+                    key={`zone-${zone.id}`}
+                    className="absolute border-2 border-white shadow-lg rounded-lg overflow-hidden"
+                    style={{
+                      left: `${zoneX}px`,
+                      top: `${zoneY}px`,
+                      width: `${zoneWidth}px`,
+                      height: `${zoneHeight}px`,
+                      backgroundColor: zone.color,
+                      zIndex: 5,
+                      padding: "8px 0 8px 0", // Thêm padding trên dưới
+                    }}
+                  >
+                    {/* Zone Name inside frame, top */}
+                    <div className="w-full h-6 flex flex-col items-center justify-center bg-opacity-80 mt-1" style={{backgroundColor: zone.color}}>
+                      <div className="font-bold text-white leading-none text-sm">{zone.id}</div>
+                      <div className="text-xs text-white opacity-90 leading-none">{zone.name.split(' - ')[1]}</div>
+                    </div>
                     {/* Stalls in zone */}
                     {zone.stalls && Array.isArray(zone.stalls) && zone.stalls.length > 0 && zone.stalls.map((stall, idx) => {
                       const pos = calculateStallPosition(zone, idx)
@@ -1075,14 +1294,16 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
                         <div
                           key={stall.id}
                           className={`absolute border-2 border-white shadow-md rounded cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-lg flex flex-col items-center justify-center text-white text-xs font-medium`}
-                                                     style={{
-                             left: `${pos.x - zoneX}px`,
-                             top: `${pos.y - zoneY + 24}px`, // 24px là chiều cao tên khu (reduced)
-                             width: `${pos.width}px`,
-                             height: `${pos.height}px`,
-                             zIndex: 10,
-                           }}
+                          style={{
+                            left: `${pos.x - zoneX}px`,
+                            top: `${pos.y - zoneY + 24}px`, // 24px là chiều cao tên khu (reduced)
+                            width: `${pos.width}px`,
+                            height: `${pos.height}px`,
+                            zIndex: 10,
+                          }}
                           onClick={() => handleStallClick(stall)}
+                          onMouseEnter={(e) => handleStallMouseEnter(e, stall)}
+                          onMouseLeave={handleStallMouseLeave}
                         >
                           <div className={`w-full h-full ${getStatusColor(stall.status)} rounded flex flex-col items-center justify-center p-1`}>
                             <div className="font-bold">{stall.code}</div>
@@ -1107,10 +1328,20 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
       {showLegend && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="w-5 h-5" />
-              Chú thích
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Info className="w-5 h-5" />
+                Chú thích
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowLegend(false)}
+                className="h-8 w-8"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1163,14 +1394,28 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
                 <h4 className="font-semibold text-gray-900">Hướng dẫn:</h4>
                 <div className="space-y-1 text-sm text-gray-600">
                   <div>• Click vào gian hàng để xem chi tiết</div>
-                  <div>• Sử dụng nút zoom để phóng to/thu nhỏ</div>
+                  <div>• Hover để xem thông tin nhanh</div>
+                  <div>• Kéo chuột để di chuyển bản đồ</div>
+                  <div>• Cuộn chuột để phóng to/thu nhỏ</div>
                   <div>• Dùng bộ lọc để tìm gian hàng cụ thể</div>
-                  <div>• Màu sắc thể hiện trạng thái gian hàng</div>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Tooltip */}
+      {tooltip.show && (
+        <div
+          className="fixed z-50 bg-black text-white text-xs rounded-lg p-3 shadow-lg pointer-events-none"
+          style={{
+            left: tooltip.x,
+            top: tooltip.y,
+            maxWidth: "250px"
+          }}
+          dangerouslySetInnerHTML={{ __html: tooltip.content }}
+        />
       )}
 
       {/* Detail Modal */}
@@ -1227,7 +1472,8 @@ export function DigitalMarketMap({ onBack }: DigitalMarketMapProps) {
                 <Button variant="outline" onClick={() => setIsDetailModalOpen(false)}>
                   Đóng
                 </Button>
-                <Button>
+                <Button onClick={handleEditFromDetail}>
+                  <Edit className="w-4 h-4 mr-2" />
                   Chỉnh sửa
                 </Button>
               </div>

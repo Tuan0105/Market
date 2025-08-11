@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ArrowLeft, Plus, Edit, Trash2, Settings } from "lucide-react"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { ArrowLeft, Plus, Edit, Trash2, Settings, Zap, Droplets, Building2, Trash, Car, Wifi, Shield, X } from "lucide-react"
 
 interface FeeType {
   id: string
@@ -26,8 +26,8 @@ interface FeeType {
 
 export function FeeConfiguration({ onBack }: { onBack: () => void }) {
   const [selectedFee, setSelectedFee] = useState<FeeType | null>(null)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isSidePanelOpen, setIsSidePanelOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   // State cho form thêm loại phí mới
   const [newFeeName, setNewFeeName] = useState("")
@@ -36,6 +36,10 @@ export function FeeConfiguration({ onBack }: { onBack: () => void }) {
   const [newFeeUnitPrice, setNewFeeUnitPrice] = useState(0)
   const [newFeeAreaPrice, setNewFeeAreaPrice] = useState(0)
   const [newFeeDescription, setNewFeeDescription] = useState("")
+  const [newFeeProgressiveRates, setNewFeeProgressiveRates] = useState<Array<{from: number, to: number, price: number}>>([
+    { from: 0, to: 50, price: 2000 },
+    { from: 51, to: 100, price: 2500 }
+  ])
 
   // Sample data - chuyển thành state để có thể thêm/xóa
   const [feeTypes, setFeeTypes] = useState<FeeType[]>([
@@ -90,12 +94,7 @@ export function FeeConfiguration({ onBack }: { onBack: () => void }) {
       description: newFeeDescription,
       ...(newFeeMethod === "fixed" && { unitPrice: newFeeUnitPrice }),
       ...(newFeeMethod === "area" && { areaPrice: newFeeAreaPrice }),
-      ...(newFeeMethod === "progressive" && { 
-        progressiveRates: [
-          { from: 0, to: 50, price: 2000 },
-          { from: 51, to: 100, price: 2500 }
-        ]
-      })
+      ...(newFeeMethod === "progressive" && { progressiveRates: newFeeProgressiveRates })
     }
 
     setFeeTypes(prev => [...prev, newFee])
@@ -107,7 +106,38 @@ export function FeeConfiguration({ onBack }: { onBack: () => void }) {
     setNewFeeUnitPrice(0)
     setNewFeeAreaPrice(0)
     setNewFeeDescription("")
-    setIsAddDialogOpen(false)
+    setNewFeeProgressiveRates([{ from: 0, to: 50, price: 2000 }, { from: 51, to: 100, price: 2500 }])
+    setIsSidePanelOpen(false)
+    setIsEditing(false)
+  }
+
+  // Hàm mở side panel để thêm mới
+  const handleOpenAddPanel = () => {
+    setIsEditing(false)
+    setIsSidePanelOpen(true)
+    // Reset form
+    setNewFeeName("")
+    setNewFeeUnit("")
+    setNewFeeMethod("fixed")
+    setNewFeeUnitPrice(0)
+    setNewFeeAreaPrice(0)
+    setNewFeeDescription("")
+    setNewFeeProgressiveRates([{ from: 0, to: 50, price: 2000 }, { from: 51, to: 100, price: 2500 }])
+  }
+
+  // Hàm mở side panel để chỉnh sửa
+  const handleOpenEditPanel = (fee: FeeType) => {
+    setSelectedFee(fee)
+    setIsEditing(true)
+    setIsSidePanelOpen(true)
+    // Fill form with current data
+    setNewFeeName(fee.name)
+    setNewFeeUnit(fee.unit)
+    setNewFeeMethod(fee.calculationMethod)
+    setNewFeeUnitPrice(fee.unitPrice || 0)
+    setNewFeeAreaPrice(fee.areaPrice || 0)
+    setNewFeeDescription(fee.description)
+    setNewFeeProgressiveRates(fee.progressiveRates || [{ from: 0, to: 50, price: 2000 }])
   }
 
   // Hàm xóa loại phí
@@ -115,17 +145,23 @@ export function FeeConfiguration({ onBack }: { onBack: () => void }) {
     setFeeTypes(prev => prev.filter(fee => fee.id !== feeId))
   }
 
-  const getCalculationMethodText = (method: string) => {
-    switch (method) {
-      case "fixed":
-        return "Đơn giá cố định"
-      case "progressive":
-        return "Lũy tiến (Bậc thang)"
-      case "area":
-        return "Theo diện tích"
-      default:
-        return method
-    }
+  // Hàm thêm bậc giá mới
+  const handleAddProgressiveRate = () => {
+    const lastRate = newFeeProgressiveRates[newFeeProgressiveRates.length - 1]
+    const newFrom = lastRate ? lastRate.to + 1 : 0
+    setNewFeeProgressiveRates([...newFeeProgressiveRates, { from: newFrom, to: newFrom + 49, price: 2000 }])
+  }
+
+  // Hàm xóa bậc giá
+  const handleRemoveProgressiveRate = (index: number) => {
+    setNewFeeProgressiveRates(newFeeProgressiveRates.filter((_, i) => i !== index))
+  }
+
+  // Hàm cập nhật bậc giá
+  const handleUpdateProgressiveRate = (index: number, field: 'from' | 'to' | 'price', value: number) => {
+    const updatedRates = [...newFeeProgressiveRates]
+    updatedRates[index] = { ...updatedRates[index], [field]: value }
+    setNewFeeProgressiveRates(updatedRates)
   }
 
   const getCalculationMethodBadge = (method: string) => {
@@ -139,6 +175,19 @@ export function FeeConfiguration({ onBack }: { onBack: () => void }) {
       default:
         return <Badge variant="secondary">{method}</Badge>
     }
+  }
+
+  // Hàm lấy icon cho loại phí
+  const getFeeIcon = (feeName: string) => {
+    const name = feeName.toLowerCase()
+    if (name.includes('điện') || name.includes('electricity')) return <Zap className="w-5 h-5 text-yellow-500" />
+    if (name.includes('nước') || name.includes('water')) return <Droplets className="w-5 h-5 text-blue-500" />
+    if (name.includes('mặt bằng') || name.includes('rent')) return <Building2 className="w-5 h-5 text-gray-500" />
+    if (name.includes('vệ sinh') || name.includes('sanitation')) return <Trash className="w-5 h-5 text-green-500" />
+    if (name.includes('gửi xe') || name.includes('parking')) return <Car className="w-5 h-5 text-purple-500" />
+    if (name.includes('internet') || name.includes('wifi')) return <Wifi className="w-5 h-5 text-indigo-500" />
+    if (name.includes('bảo hiểm') || name.includes('insurance')) return <Shield className="w-5 h-5 text-red-500" />
+    return <Settings className="w-5 h-5 text-gray-500" />
   }
 
   return (
@@ -159,182 +208,31 @@ export function FeeConfiguration({ onBack }: { onBack: () => void }) {
             <p className="text-gray-600">Thiết lập các loại phí và phương pháp tính</p>
           </div>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Thêm loại phí mới
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Thêm loại phí mới</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tên loại phí</label>
-                <Input 
-                  placeholder="Ví dụ: Phí điện, Phí nước..." 
-                  value={newFeeName}
-                  onChange={(e) => setNewFeeName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Đơn vị tính</label>
-                <Input 
-                  placeholder="Ví dụ: kWh, m³, tháng..." 
-                  value={newFeeUnit}
-                  onChange={(e) => setNewFeeUnit(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phương pháp tính</label>
-                <Select value={newFeeMethod} onValueChange={(value: "fixed" | "progressive" | "area") => setNewFeeMethod(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn phương pháp tính" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed">Đơn giá cố định</SelectItem>
-                    <SelectItem value="progressive">Lũy tiến (Bậc thang)</SelectItem>
-                    <SelectItem value="area">Theo diện tích</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {newFeeMethod === "fixed" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Đơn giá ({newFeeUnit})</label>
-                  <Input 
-                    type="number" 
-                    placeholder="Nhập đơn giá"
-                    value={newFeeUnitPrice}
-                    onChange={(e) => setNewFeeUnitPrice(Number(e.target.value))}
-                  />
-                </div>
-              )}
-
-              {newFeeMethod === "area" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Đơn giá theo m²</label>
-                  <Input 
-                    type="number" 
-                    placeholder="Nhập đơn giá theo m²"
-                    value={newFeeAreaPrice}
-                    onChange={(e) => setNewFeeAreaPrice(Number(e.target.value))}
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
-                <Input 
-                  placeholder="Mô tả chi tiết về loại phí này" 
-                  value={newFeeDescription}
-                  onChange={(e) => setNewFeeDescription(e.target.value)}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Hủy
-                </Button>
-                <Button onClick={handleAddFeeType}>Thêm loại phí</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button className="flex items-center gap-2" onClick={handleOpenAddPanel}>
+          <Plus className="w-4 h-4" />
+          Thêm loại phí mới
+        </Button>
       </div>
 
       {/* Fee Types List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {feeTypes.map((fee) => (
-          <Card key={fee.id} className="hover:shadow-md transition-shadow">
+          <Card key={fee.id} className="hover:shadow-md transition-shadow min-h-[280px] flex flex-col">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{fee.name}</CardTitle>
+                <div className="flex items-center gap-3">
+                  {getFeeIcon(fee.name)}
+                  <CardTitle className="text-lg">{fee.name}</CardTitle>
+                </div>
                 <div className="flex items-center gap-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setSelectedFee(fee)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>Chỉnh sửa: {fee.name}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Tên loại phí</label>
-                          <Input defaultValue={fee.name} />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Đơn vị tính</label>
-                          <Input defaultValue={fee.unit} />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Phương pháp tính</label>
-                          <Select defaultValue={fee.calculationMethod}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="fixed">Đơn giá cố định</SelectItem>
-                              <SelectItem value="progressive">Lũy tiến (Bậc thang)</SelectItem>
-                              <SelectItem value="area">Theo diện tích</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        {fee.calculationMethod === "fixed" && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Đơn giá ({fee.unit})</label>
-                            <Input type="number" defaultValue={fee.unitPrice} />
-                          </div>
-                        )}
-                        
-                        {fee.calculationMethod === "progressive" && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Bậc giá</label>
-                            <div className="space-y-2">
-                              {fee.progressiveRates?.map((rate, index) => (
-                                <div key={index} className="grid grid-cols-3 gap-2">
-                                  <Input type="number" placeholder="Từ" defaultValue={rate.from} />
-                                  <Input type="number" placeholder="Đến" defaultValue={rate.to} />
-                                  <Input type="number" placeholder="Giá" defaultValue={rate.price} />
-                                </div>
-                              ))}
-                              <Button variant="outline" size="sm" className="w-full">
-                                <Plus className="w-4 h-4 mr-2" />
-                                Thêm bậc giá
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {fee.calculationMethod === "area" && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Đơn giá theo m²</label>
-                            <Input type="number" defaultValue={fee.areaPrice} />
-                          </div>
-                        )}
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
-                          <Input defaultValue={fee.description} />
-                        </div>
-                        
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline">Hủy</Button>
-                          <Button>Lưu thay đổi</Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleOpenEditPanel(fee)}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -346,7 +244,7 @@ export function FeeConfiguration({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Đơn vị:</span>
                 <Badge variant="outline">{fee.unit}</Badge>
@@ -416,6 +314,191 @@ export function FeeConfiguration({ onBack }: { onBack: () => void }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sheet for Add/Edit */}
+      <Sheet open={isSidePanelOpen} onOpenChange={setIsSidePanelOpen}>
+        <SheetContent side="right" className="overflow-y-auto p-0">
+          <SheetHeader className="space-y-4 pb-6 border-b p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Plus className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <SheetTitle className="text-xl font-bold">
+                    {isEditing ? `Chỉnh sửa: ${selectedFee?.name}` : 'Thêm loại phí mới'}
+                  </SheetTitle>
+                  <p className="text-sm text-gray-600">
+                    {isEditing ? 'Cập nhật thông tin loại phí' : 'Điền đầy đủ thông tin để tạo loại phí mới'}
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setIsSidePanelOpen(false)}
+                className="h-8 w-8"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </SheetHeader>
+
+          <div className="p-6 space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tên loại phí</label>
+                  <Input 
+                    placeholder="Ví dụ: Phí điện, Phí nước..." 
+                    value={newFeeName}
+                    onChange={(e) => setNewFeeName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Đơn vị tính</label>
+                  <div className="space-y-2">
+                    <Select value={newFeeUnit} onValueChange={setNewFeeUnit}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn đơn vị tính phổ biến" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kWh">kWh (Kilowatt giờ)</SelectItem>
+                        <SelectItem value="m³">m³ (Mét khối)</SelectItem>
+                        <SelectItem value="tháng">Tháng</SelectItem>
+                        <SelectItem value="m²">m² (Mét vuông)</SelectItem>
+                        <SelectItem value="ngày">Ngày</SelectItem>
+                        <SelectItem value="tuần">Tuần</SelectItem>
+                        <SelectItem value="năm">Năm</SelectItem>
+                        <SelectItem value="lần">Lần</SelectItem>
+                        <SelectItem value="kg">kg (Kilogram)</SelectItem>
+                        <SelectItem value="lít">Lít</SelectItem>
+                        <SelectItem value="giờ">Giờ</SelectItem>
+                        <SelectItem value="phút">Phút</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="text-xs text-gray-500">
+                      Hoặc nhập đơn vị tùy chỉnh:
+                    </div>
+                    <Input 
+                      placeholder="Nhập đơn vị tùy chỉnh..." 
+                      value={newFeeUnit}
+                      onChange={(e) => setNewFeeUnit(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phương pháp tính</label>
+                  <Select value={newFeeMethod} onValueChange={(value: "fixed" | "progressive" | "area") => setNewFeeMethod(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn phương pháp tính" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">Đơn giá cố định</SelectItem>
+                      <SelectItem value="progressive">Lũy tiến (Bậc thang)</SelectItem>
+                      <SelectItem value="area">Theo diện tích</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {newFeeMethod === "fixed" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Đơn giá ({newFeeUnit})</label>
+                    <Input 
+                      type="number" 
+                      placeholder="Nhập đơn giá"
+                      value={newFeeUnitPrice}
+                      onChange={(e) => setNewFeeUnitPrice(Number(e.target.value))}
+                    />
+                  </div>
+                )}
+
+                {newFeeMethod === "area" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Đơn giá theo m²</label>
+                    <Input 
+                      type="number" 
+                      placeholder="Nhập đơn giá theo m²"
+                      value={newFeeAreaPrice}
+                      onChange={(e) => setNewFeeAreaPrice(Number(e.target.value))}
+                    />
+                  </div>
+                )}
+
+                {newFeeMethod === "progressive" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Bậc giá</label>
+                    <div className="space-y-3">
+                      {/* Table Header */}
+                      <div className="grid grid-cols-4 gap-2 text-sm font-medium text-gray-700">
+                        <div>Từ</div>
+                        <div>Đến</div>
+                        <div>Đơn giá (VND)</div>
+                        <div></div>
+                      </div>
+                      
+                      {/* Table Rows */}
+                      {newFeeProgressiveRates.map((rate, index) => (
+                        <div key={index} className="grid grid-cols-4 gap-2">
+                          <Input
+                            type="number"
+                            value={rate.from}
+                            onChange={(e) => handleUpdateProgressiveRate(index, 'from', Number(e.target.value))}
+                          />
+                          <Input
+                            type="number"
+                            value={rate.to}
+                            onChange={(e) => handleUpdateProgressiveRate(index, 'to', Number(e.target.value))}
+                          />
+                          <Input
+                            type="number"
+                            value={rate.price}
+                            onChange={(e) => handleUpdateProgressiveRate(index, 'price', Number(e.target.value))}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 text-red-600"
+                            onClick={() => handleRemoveProgressiveRate(index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={handleAddProgressiveRate}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Thêm bậc giá
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+                  <Input 
+                    placeholder="Mô tả chi tiết về loại phí này" 
+                    value={newFeeDescription}
+                    onChange={(e) => setNewFeeDescription(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setIsSidePanelOpen(false)}>
+                    Hủy
+                  </Button>
+                  <Button onClick={handleAddFeeType}>
+                    {isEditing ? 'Lưu thay đổi' : 'Thêm loại phí'}
+                  </Button>
+                </div>
+              </div>
+          </SheetContent>
+        </Sheet>
     </div>
   )
-} 
+}
