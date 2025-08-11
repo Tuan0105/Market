@@ -1,13 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -16,8 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, Search, Receipt, AlertCircle, CheckCircle, Printer } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AlertCircle, ArrowLeft, CheckCircle, Eye, FileText, Printer, Receipt, Search } from "lucide-react"
+import { useState } from "react"
 
 interface PaymentRecordingProps {
   onBack: () => void
@@ -53,6 +53,8 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
   const [error, setError] = useState("")
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [showInvoiceDetailDialog, setShowInvoiceDetailDialog] = useState(false)
+  const [selectedInvoiceForDetail, setSelectedInvoiceForDetail] = useState<Invoice | null>(null)
 
   // Sample data
   const merchants: Merchant[] = [
@@ -143,11 +145,23 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
   }
 
   const handleInvoiceSelection = (invoiceId: string, checked: boolean) => {
+    let newSelectedInvoices: string[]
+    
     if (checked) {
-      setSelectedInvoices([...selectedInvoices, invoiceId])
+      newSelectedInvoices = [...selectedInvoices, invoiceId]
     } else {
-      setSelectedInvoices(selectedInvoices.filter((id) => id !== invoiceId))
+      newSelectedInvoices = selectedInvoices.filter((id) => id !== invoiceId)
     }
+    
+    setSelectedInvoices(newSelectedInvoices)
+    
+    // Tự động điền tổng số tiền của các hóa đơn được chọn
+    const totalAmount = newSelectedInvoices.reduce((sum, id) => {
+      const invoice = Object.values(invoices).flat().find(inv => inv.id === id)
+      return sum + (invoice?.amount || 0)
+    }, 0)
+    
+    setPaymentAmount(totalAmount.toString())
   }
 
   const calculateTotalAmount = () => {
@@ -188,6 +202,11 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("vi-VN").format(amount) + " VND"
+  }
+
+  const handleViewInvoiceDetail = (invoice: Invoice) => {
+    setSelectedInvoiceForDetail(invoice)
+    setShowInvoiceDetailDialog(true)
   }
 
   const renderSearchStep = () => (
@@ -298,7 +317,7 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
           <CardContent>
             <div className="space-y-3">
               {merchantInvoices.map((invoice) => (
-                <div key={invoice.id} className="flex items-center space-x-3 p-3 border rounded-lg">
+                <div key={invoice.id} className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                   <Checkbox
                     id={invoice.id}
                     checked={selectedInvoices.includes(invoice.id)}
@@ -306,20 +325,38 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
                   />
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
-                      <div>
-                        <Label htmlFor={invoice.id} className="font-medium cursor-pointer">
-                          {invoice.description}
-                        </Label>
-                        <p className="text-sm text-gray-600">Mã HĐ: {invoice.id}</p>
-                        <p className="text-sm text-gray-600">
-                          Hạn thanh toán: {new Date(invoice.dueDate).toLocaleDateString("vi-VN")}
-                        </p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <FileText className="w-4 h-4 text-gray-500" />
+                          <Label htmlFor={invoice.id} className="font-medium cursor-pointer text-base">
+                            {invoice.description}
+                          </Label>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                          <div>
+                            <span className="font-medium">Mã HĐ:</span> {invoice.id}
+                          </div>
+                          <div>
+                            <span className="font-medium">Hạn thanh toán:</span> {new Date(invoice.dueDate).toLocaleDateString("vi-VN")}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{formatCurrency(invoice.amount)}</p>
-                        <Badge variant="outline" className="text-orange-600 border-orange-200">
-                          {invoice.type}
-                        </Badge>
+                      <div className="text-right flex flex-col items-end gap-2">
+                        <p className="font-semibold text-lg">{formatCurrency(invoice.amount)}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-orange-600 border-orange-200">
+                            {invoice.type}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-blue-100"
+                            title="Xem chi tiết hóa đơn"
+                            onClick={() => handleViewInvoiceDetail(invoice)}
+                          >
+                            <Eye className="w-4 h-4 text-gray-500" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -328,10 +365,34 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
             </div>
 
             {selectedInvoices.length > 0 && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="font-medium text-blue-900">
-                  Tổng số tiền cần thanh toán: {formatCurrency(totalSelectedAmount)}
-                </p>
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-blue-900 flex items-center gap-2">
+                    <Receipt className="w-4 h-4" />
+                    Tổng quan thanh toán
+                  </h4>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    {selectedInvoices.length} hóa đơn được chọn
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-blue-800">Tổng số tiền hóa đơn:</span>
+                    <span className="font-semibold text-blue-900">{formatCurrency(totalSelectedAmount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-800">Số tiền thanh toán:</span>
+                    <span className="font-semibold text-blue-900">
+                      {paymentAmount ? formatCurrency(parseInt(paymentAmount) || 0) : "0 VND"}
+                    </span>
+                  </div>
+                  {paymentAmount && parseInt(paymentAmount) < totalSelectedAmount && (
+                    <div className="flex justify-between text-orange-700">
+                      <span>Số tiền còn lại:</span>
+                      <span className="font-semibold">{formatCurrency(totalSelectedAmount - (parseInt(paymentAmount) || 0))}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -344,14 +405,24 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="amount">Số tiền thanh toán</Label>
+                <Label htmlFor="amount" className="flex items-center gap-2">
+                  Số tiền thanh toán
+                  <span className="text-xs text-gray-500">(Có thể thanh toán một phần)</span>
+                </Label>
                 <Input
                   id="amount"
                   type="number"
                   placeholder="Nhập số tiền"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="text-lg font-medium"
                 />
+                {paymentAmount && parseInt(paymentAmount) > totalSelectedAmount && (
+                  <p className="text-sm text-orange-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    Số tiền thanh toán lớn hơn tổng hóa đơn
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="method">Phương thức thanh toán</Label>
@@ -362,6 +433,7 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
                   <SelectContent>
                     <SelectItem value="cash">Tiền mặt</SelectItem>
                     <SelectItem value="transfer">Chuyển khoản</SelectItem>
+                    <SelectItem value="card">Thẻ tín dụng/Ghi nợ</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -399,10 +471,11 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
     const merchantInvoices = invoices[selectedMerchant.id] || []
     const selectedInvoiceDetails = selectedInvoices
       .map((id) => merchantInvoices.find((inv) => inv.id === id))
-      .filter(Boolean)
+      .filter(Boolean) as Invoice[]
     const totalAmount = Number.parseFloat(paymentAmount) || 0
     const totalInvoiceAmount = calculateTotalAmount()
     const remainingDebt = Math.max(0, selectedMerchant.totalDebt - totalAmount)
+    const isPartialPayment = totalAmount < totalInvoiceAmount
 
     return (
       <Card>
@@ -433,12 +506,22 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
               <h4 className="font-medium text-gray-900">Thông tin Thanh toán</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Số tiền:</span>
-                  <span className="font-medium">{formatCurrency(totalAmount)}</span>
+                  <span className="text-gray-600">Số tiền thanh toán:</span>
+                  <span className="font-medium text-lg">{formatCurrency(totalAmount)}</span>
                 </div>
+                {isPartialPayment && (
+                  <div className="flex justify-between text-orange-600">
+                    <span>Số tiền còn lại:</span>
+                    <span className="font-medium">{formatCurrency(totalInvoiceAmount - totalAmount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Phương thức:</span>
-                  <span className="font-medium">{paymentMethod === "cash" ? "Tiền mặt" : "Chuyển khoản"}</span>
+                  <span className="font-medium">
+                    {paymentMethod === "cash" ? "Tiền mặt" : 
+                     paymentMethod === "transfer" ? "Chuyển khoản" : 
+                     paymentMethod === "card" ? "Thẻ tín dụng/Ghi nợ" : "Chưa chọn"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Ngày thanh toán:</span>
@@ -451,12 +534,49 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
           <div className="space-y-3">
             <h4 className="font-medium text-gray-900">Hóa đơn được thanh toán</h4>
             <div className="space-y-2">
-              {selectedInvoiceDetails.map((invoice) => (
-                <div key={invoice?.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm">{invoice?.description}</span>
-                  <span className="font-medium text-sm">{formatCurrency(invoice?.amount || 0)}</span>
-                </div>
-              ))}
+              {selectedInvoiceDetails.map((invoice) => {
+                const invoiceAmount = invoice?.amount || 0
+                const isFullyPaid = totalAmount >= totalInvoiceAmount
+                const isPartiallyPaid = !isFullyPaid && totalAmount > 0
+                
+                return (
+                  <div key={invoice?.id} className="p-3 bg-gray-50 rounded-lg border">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <FileText className="w-4 h-4 text-gray-500" />
+                          <span className="font-medium text-sm">{invoice?.description}</span>
+                        </div>
+                        <p className="text-xs text-gray-600">Mã: {invoice?.id}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-sm">{formatCurrency(invoiceAmount)}</p>
+                        {isPartiallyPaid && (
+                          <p className="text-xs text-orange-600">
+                            Thanh toán một phần
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {isPartiallyPaid && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Đã thanh toán:</span>
+                          <span className="font-medium text-green-600">
+                            {formatCurrency(Math.min(totalAmount, invoiceAmount))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Còn lại:</span>
+                          <span className="font-medium text-orange-600">
+                            {formatCurrency(Math.max(0, invoiceAmount - totalAmount))}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -501,12 +621,23 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
           </div>
 
           <div className="flex gap-3 justify-center">
-            <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+            <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
               <Printer className="w-4 h-4" />
               In biên lai
             </Button>
-            <Button onClick={onBack} className="bg-blue-600 hover:bg-blue-700">
-              Về trang chủ
+            <Button variant="outline" onClick={() => {
+              setCurrentStep("search")
+              setSearchQuery("")
+              setSelectedMerchant(null)
+              setSelectedInvoices([])
+              setPaymentAmount("")
+              setPaymentMethod("")
+              setPaymentDate(new Date().toISOString().split("T")[0])
+              setError("")
+              setIsSuccess(false)
+            }} className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Thực hiện giao dịch khác
             </Button>
           </div>
         </CardContent>
@@ -572,6 +703,61 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
       {currentStep === "input" && renderInputStep()}
       {currentStep === "verification" && renderVerificationStep()}
       {currentStep === "confirmation" && renderConfirmationStep()}
+
+      {/* Invoice Detail Dialog */}
+      <Dialog open={showInvoiceDetailDialog} onOpenChange={setShowInvoiceDetailDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              Chi tiết Hóa đơn
+            </DialogTitle>
+          </DialogHeader>
+          {selectedInvoiceForDetail && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <Label className="text-gray-600">Mã hóa đơn:</Label>
+                  <p className="font-medium">{selectedInvoiceForDetail.id}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-600">Loại phí:</Label>
+                  <Badge variant="outline" className="text-orange-600 border-orange-200">
+                    {selectedInvoiceForDetail.type}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-gray-600">Số tiền:</Label>
+                  <p className="font-semibold text-lg">{formatCurrency(selectedInvoiceForDetail.amount)}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-600">Hạn thanh toán:</Label>
+                  <p className="font-medium">{new Date(selectedInvoiceForDetail.dueDate).toLocaleDateString("vi-VN")}</p>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-gray-600">Mô tả:</Label>
+                  <p className="font-medium">{selectedInvoiceForDetail.description}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-600">Trạng thái:</Label>
+                  <Badge 
+                    variant={selectedInvoiceForDetail.status === "paid" ? "default" : "secondary"}
+                    className={selectedInvoiceForDetail.status === "paid" ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"}
+                  >
+                    {selectedInvoiceForDetail.status === "paid" ? "Đã thanh toán" : 
+                     selectedInvoiceForDetail.status === "partial" ? "Thanh toán một phần" : "Chưa thanh toán"}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setShowInvoiceDetailDialog(false)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>

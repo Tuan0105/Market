@@ -1,17 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Search, Download, Eye, Printer, Filter, X, ArrowLeft } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
+import { ArrowLeft, CalendarIcon, Download, Eye, Filter, Printer, Search, X } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface Transaction {
   id: string
@@ -56,6 +55,10 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
   const [activeDateFilter, setActiveDateFilter] = useState<string>("")
   const [dateFromOpen, setDateFromOpen] = useState(false)
   const [dateToOpen, setDateToOpen] = useState(false)
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
   // Sample data
   useEffect(() => {
@@ -129,8 +132,8 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
       },
       {
         id: "5",
-        transactionCode: "GD-20250804-001",
-        timestamp: new Date("2025-08-07T08:45:00"),
+        transactionCode: "GD-20250804-002",
+        timestamp: new Date("2025-08-04T08:45:00"),
         merchantName: "Nguyễn Văn Tuyết",
         stallCode: "D04",
         paymentDescription: "Thanh toán phí mặt bằng T08/2025",
@@ -143,6 +146,260 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
         debtBefore: 1000000,
         debtAfter: 0
       },
+      {
+        id: "6",
+        transactionCode: "GD-20250803-001",
+        timestamp: new Date("2025-08-03T16:20:00"),
+        merchantName: "Hoàng Thị Mai",
+        stallCode: "E07",
+        paymentDescription: "Thanh toán phí mặt bằng và điện, nước T08/2025",
+        amount: 4200000,
+        paymentMethod: "Chuyển khoản",
+        status: "Thành công",
+        collectedBy: "Lê Văn Minh",
+        invoices: [
+          { id: "INV-082025-E07", type: "Phí mặt bằng", amount: 3500000 },
+          { id: "INV-DN-082025-E07", type: "Phí điện, nước", amount: 700000 }
+        ],
+        debtBefore: 4200000,
+        debtAfter: 0
+      },
+      {
+        id: "7",
+        transactionCode: "GD-20250803-002",
+        timestamp: new Date("2025-08-03T14:30:00"),
+        merchantName: "Vũ Văn Hùng",
+        stallCode: "F02",
+        paymentDescription: "Thanh toán phí mặt bằng T08/2025",
+        amount: 2800000,
+        paymentMethod: "QR Code",
+        status: "Thành công",
+        collectedBy: "Phạm Thị Nga",
+        invoices: [
+          { id: "INV-082025-F02", type: "Phí mặt bằng", amount: 2800000 }
+        ],
+        debtBefore: 2800000,
+        debtAfter: 0
+      },
+      {
+        id: "8",
+        transactionCode: "GD-20250802-001",
+        timestamp: new Date("2025-08-02T11:45:00"),
+        merchantName: "Đỗ Thị Hương",
+        stallCode: "G11",
+        paymentDescription: "Thanh toán phí điện, nước T08/2025",
+        amount: 650000,
+        paymentMethod: "Tiền mặt",
+        status: "Thất bại",
+        invoices: [
+          { id: "INV-DN-082025-G11", type: "Phí điện, nước", amount: 650000 }
+        ],
+        debtBefore: 650000,
+        debtAfter: 650000
+      },
+      {
+        id: "9",
+        transactionCode: "GD-20250802-002",
+        timestamp: new Date("2025-08-02T10:15:00"),
+        merchantName: "Lý Văn Thành",
+        stallCode: "H08",
+        paymentDescription: "Thanh toán phí mặt bằng T08/2025",
+        amount: 3200000,
+        paymentMethod: "Chuyển khoản",
+        status: "Đang xử lý",
+        invoices: [
+          { id: "INV-082025-H08", type: "Phí mặt bằng", amount: 3200000 }
+        ],
+        debtBefore: 3200000,
+        debtAfter: 3200000
+      },
+      {
+        id: "10",
+        transactionCode: "GD-20250801-001",
+        timestamp: new Date("2025-08-01T15:20:00"),
+        merchantName: "Nguyễn Thị Lan",
+        stallCode: "A05",
+        paymentDescription: "Thanh toán phí điện, nước T08/2025",
+        amount: 500000,
+        paymentMethod: "Tiền mặt",
+        status: "Thành công",
+        collectedBy: "Trần Văn An",
+        invoices: [
+          { id: "INV-DN-082025-A05-2", type: "Phí điện, nước", amount: 500000 }
+        ],
+        debtBefore: 500000,
+        debtAfter: 0
+      },
+      {
+        id: "11",
+        transactionCode: "GD-20250731-001",
+        timestamp: new Date("2025-07-31T13:10:00"),
+        merchantName: "Trần Văn Đức",
+        stallCode: "D03",
+        paymentDescription: "Thanh toán phí mặt bằng T07/2025",
+        amount: 4000000,
+        paymentMethod: "Tiền mặt",
+        status: "Thành công",
+        collectedBy: "Nguyễn Thị Hoa",
+        invoices: [
+          { id: "INV-072025-D03", type: "Phí mặt bằng", amount: 4000000 }
+        ],
+        debtBefore: 4000000,
+        debtAfter: 0
+      },
+      {
+        id: "12",
+        transactionCode: "GD-20250730-001",
+        timestamp: new Date("2025-07-30T09:30:00"),
+        merchantName: "Lê Văn Bình",
+        stallCode: "B12",
+        paymentDescription: "Thanh toán phí mặt bằng và điện, nước T07/2025",
+        amount: 3800000,
+        paymentMethod: "QR Code",
+        status: "Thành công",
+        collectedBy: "Lê Văn Minh",
+        invoices: [
+          { id: "INV-072025-B12", type: "Phí mặt bằng", amount: 3000000 },
+          { id: "INV-DN-072025-B12", type: "Phí điện, nước", amount: 800000 }
+        ],
+        debtBefore: 3800000,
+        debtAfter: 0
+      },
+      {
+        id: "13",
+        transactionCode: "GD-20250729-001",
+        timestamp: new Date("2025-07-29T16:45:00"),
+        merchantName: "Phạm Thị Cúc",
+        stallCode: "C08",
+        paymentDescription: "Thanh toán phí mặt bằng T07/2025",
+        amount: 2500000,
+        paymentMethod: "Chuyển khoản",
+        status: "Thành công",
+        collectedBy: "Phạm Thị Nga",
+        invoices: [
+          { id: "INV-072025-C08", type: "Phí mặt bằng", amount: 2500000 }
+        ],
+        debtBefore: 2500000,
+        debtAfter: 0
+      },
+      {
+        id: "14",
+        transactionCode: "GD-20250728-001",
+        timestamp: new Date("2025-07-28T11:20:00"),
+        merchantName: "Hoàng Thị Mai",
+        stallCode: "E07",
+        paymentDescription: "Thanh toán phí điện, nước T07/2025",
+        amount: 700000,
+        paymentMethod: "Tiền mặt",
+        status: "Thất bại",
+        invoices: [
+          { id: "INV-DN-072025-E07", type: "Phí điện, nước", amount: 700000 }
+        ],
+        debtBefore: 700000,
+        debtAfter: 700000
+      },
+      {
+        id: "15",
+        transactionCode: "GD-20250727-001",
+        timestamp: new Date("2025-07-27T14:15:00"),
+        merchantName: "Vũ Văn Hùng",
+        stallCode: "F02",
+        paymentDescription: "Thanh toán phí mặt bằng T07/2025",
+        amount: 2800000,
+        paymentMethod: "QR Code",
+        status: "Thành công",
+        collectedBy: "Trần Văn An",
+        invoices: [
+          { id: "INV-072025-F02", type: "Phí mặt bằng", amount: 2800000 }
+        ],
+        debtBefore: 2800000,
+        debtAfter: 0
+      },
+      {
+        id: "16",
+        transactionCode: "GD-20250726-001",
+        timestamp: new Date("2025-07-26T10:30:00"),
+        merchantName: "Đỗ Thị Hương",
+        stallCode: "G11",
+        paymentDescription: "Thanh toán phí mặt bằng và điện, nước T07/2025",
+        amount: 3150000,
+        paymentMethod: "Chuyển khoản",
+        status: "Thành công",
+        collectedBy: "Nguyễn Thị Hoa",
+        invoices: [
+          { id: "INV-072025-G11", type: "Phí mặt bằng", amount: 2500000 },
+          { id: "INV-DN-072025-G11", type: "Phí điện, nước", amount: 650000 }
+        ],
+        debtBefore: 3150000,
+        debtAfter: 0
+      },
+      {
+        id: "17",
+        transactionCode: "GD-20250725-001",
+        timestamp: new Date("2025-07-25T15:45:00"),
+        merchantName: "Lý Văn Thành",
+        stallCode: "H08",
+        paymentDescription: "Thanh toán phí mặt bằng T07/2025",
+        amount: 3200000,
+        paymentMethod: "Tiền mặt",
+        status: "Đang xử lý",
+        invoices: [
+          { id: "INV-072025-H08", type: "Phí mặt bằng", amount: 3200000 }
+        ],
+        debtBefore: 3200000,
+        debtAfter: 3200000
+      },
+      {
+        id: "18",
+        transactionCode: "GD-20250724-001",
+        timestamp: new Date("2025-07-24T12:20:00"),
+        merchantName: "Nguyễn Văn Tuyết",
+        stallCode: "D04",
+        paymentDescription: "Thanh toán phí điện, nước T07/2025",
+        amount: 1000000,
+        paymentMethod: "QR Code",
+        status: "Thành công",
+        collectedBy: "Lê Văn Minh",
+        invoices: [
+          { id: "INV-DN-072025-D04", type: "Phí điện, nước", amount: 1000000 }
+        ],
+        debtBefore: 1000000,
+        debtAfter: 0
+      },
+      {
+        id: "19",
+        transactionCode: "GD-20250723-001",
+        timestamp: new Date("2025-07-23T09:15:00"),
+        merchantName: "Nguyễn Thị Lan",
+        stallCode: "A05",
+        paymentDescription: "Thanh toán phí mặt bằng T07/2025",
+        amount: 5000000,
+        paymentMethod: "Tiền mặt",
+        status: "Thành công",
+        collectedBy: "Trần Văn An",
+        invoices: [
+          { id: "INV-072025-A05", type: "Phí mặt bằng", amount: 5000000 }
+        ],
+        debtBefore: 5000000,
+        debtAfter: 0
+      },
+      {
+        id: "20",
+        transactionCode: "GD-20250722-001",
+        timestamp: new Date("2025-07-22T16:30:00"),
+        merchantName: "Lê Văn Bình",
+        stallCode: "B12",
+        paymentDescription: "Thanh toán phí điện, nước T07/2025",
+        amount: 800000,
+        paymentMethod: "Chuyển khoản",
+        status: "Thành công",
+        collectedBy: "Phạm Thị Nga",
+        invoices: [
+          { id: "INV-DN-072025-B12", type: "Phí điện, nước", amount: 800000 }
+        ],
+        debtBefore: 800000,
+        debtAfter: 0
+      }
     ]
     setTransactions(sampleTransactions)
     setFilteredTransactions(sampleTransactions)
@@ -191,6 +448,9 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
   }
 
   useEffect(() => {
+    // Reset về trang đầu khi áp dụng bộ lọc
+    setCurrentPage(1)
+    
     // Nếu không có filter nào thì hiển thị tất cả giao dịch
     if (!dateFrom && !dateTo && statusFilter.length === 0 && paymentMethodFilter.length === 0 && merchantFilter === "all" && !searchTerm) {
       setFilteredTransactions(transactions)
@@ -261,6 +521,48 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
       default:
         return <Badge>{status}</Badge>
     }
+  }
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentTransactions = filteredTransactions.slice(startIndex, endIndex)
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  // Hàm tính toán các trang hiển thị
+  const getVisiblePageNumbers = () => {
+    const pages: number[] = []
+    
+    if (totalPages <= 5) {
+      // Nếu tổng số trang <= 5, hiển thị tất cả
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Nếu tổng số trang > 5
+      if (currentPage <= 3) {
+        // Hiển thị 5 trang đầu
+        for (let i = 1; i <= 5; i++) {
+          pages.push(i)
+        }
+      } else if (currentPage >= totalPages - 2) {
+        // Hiển thị 5 trang cuối
+        for (let i = totalPages - 4; i <= totalPages; i++) {
+          pages.push(i)
+        }
+      } else {
+        // Hiển thị 2 trang trước, trang hiện tại, 2 trang sau
+        for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+          pages.push(i)
+        }
+      }
+    }
+    
+    return pages
   }
 
   return (
@@ -364,6 +666,10 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
                   <SelectItem value="Phạm Thị Cúc">Phạm Thị Cúc</SelectItem>
                   <SelectItem value="Trần Văn Đức">Trần Văn Đức</SelectItem>
                   <SelectItem value="Nguyễn Văn Tuyết">Nguyễn Văn Tuyết</SelectItem>
+                  <SelectItem value="Hoàng Thị Mai">Hoàng Thị Mai</SelectItem>
+                  <SelectItem value="Vũ Văn Hùng">Vũ Văn Hùng</SelectItem>
+                  <SelectItem value="Đỗ Thị Hương">Đỗ Thị Hương</SelectItem>
+                  <SelectItem value="Lý Văn Thành">Lý Văn Thành</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -454,11 +760,80 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
       </Card>
 
       {/* Results Summary */}
-      <div className="flex items-center justify-between">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Tổng giao dịch</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredTransactions.length}</p>
+              </div>
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <span className="text-blue-600 font-semibold text-sm">T</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Thành công</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {filteredTransactions.filter(t => t.status === "Thành công").length}
+                </p>
+              </div>
+              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                <span className="text-green-600 font-semibold text-sm">✓</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Đang xử lý</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {filteredTransactions.filter(t => t.status === "Đang xử lý").length}
+                </p>
+              </div>
+              <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <span className="text-yellow-600 font-semibold text-sm">⏳</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Thất bại</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {filteredTransactions.filter(t => t.status === "Thất bại").length}
+                </p>
+              </div>
+              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                <span className="text-red-600 font-semibold text-sm">✗</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="flex items-center justify-between mb-4">
         <p className="text-gray-600">
-          Hiển thị {filteredTransactions.length} giao dịch
-          {filteredTransactions.length !== transactions.length && ` (trong tổng số ${transactions.length})`}
+          Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredTransactions.length)} trong tổng số {filteredTransactions.length} giao dịch
+          {filteredTransactions.length !== transactions.length && ` (đã lọc từ ${transactions.length} giao dịch)`}
         </p>
+        <div className="text-sm text-gray-600">
+          Tổng tiền: <span className="font-semibold text-green-600">
+            {filteredTransactions
+              .filter(t => t.status === "Thành công")
+              .reduce((sum, t) => sum + t.amount, 0)
+              .toLocaleString()} VND
+          </span>
+        </div>
       </div>
 
       {/* Transactions Table */}
@@ -480,23 +855,27 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Nội dung Thanh toán
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Số tiền (VND)
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Hình thức
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Trạng thái
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Hành động
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
+                {currentTransactions.map((transaction) => (
+                  <tr 
+                    key={transaction.id} 
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => handleViewDetail(transaction)}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {transaction.transactionCode}
                     </td>
@@ -505,37 +884,43 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div>
-                        <div className="font-medium">{transaction.merchantName}</div>
-                        <div className="text-gray-500">{transaction.stallCode}</div>
+                        <div className="font-semibold">{transaction.merchantName}</div>
+                        <div className="text-gray-500 text-xs">{transaction.stallCode}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
                       {transaction.paymentDescription}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
                       {transaction.amount.toLocaleString()} VND
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                       {transaction.paymentMethod}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
                       {getStatusBadge(transaction.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleViewDetail(transaction)}
-                          className="p-1"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewDetail(transaction)
+                          }}
+                          className="p-1 hover:bg-blue-100"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handlePrintReceipt(transaction)}
-                          className="p-1"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePrintReceipt(transaction)
+                          }}
+                          className="p-1 hover:bg-green-100"
                         >
                           <Printer className="w-4 h-4" />
                         </Button>
@@ -548,6 +933,100 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-700">
+            Trang {currentPage} của {totalPages}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Hiển thị:</span>
+            <Select
+              value={itemsPerPage.toString()}
+              onValueChange={(value) => {
+                setItemsPerPage(parseInt(value))
+                setCurrentPage(1) // Reset về trang đầu khi thay đổi số lượng
+              }}
+            >
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-gray-600">mục/trang</span>
+          </div>
+        </div>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Trước
+            </Button>
+            
+            {/* First page */}
+            {currentPage > 3 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(1)}
+                className="w-8 h-8 p-0"
+              >
+                1
+              </Button>
+            )}
+            
+            {/* Ellipsis after first page */}
+            {currentPage > 4 && <span className="text-gray-500">...</span>}
+            
+            {/* Page numbers around current page */}
+            {getVisiblePageNumbers().map(page => (
+              <Button
+                key={page}
+                variant={currentPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePageChange(page)}
+                className="w-8 h-8 p-0"
+              >
+                {page}
+              </Button>
+            ))}
+            
+            {/* Ellipsis before last page */}
+            {currentPage < totalPages - 3 && <span className="text-gray-500">...</span>}
+            
+            {/* Last page */}
+            {currentPage < totalPages - 2 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(totalPages)}
+                className="w-8 h-8 p-0"
+              >
+                {totalPages}
+              </Button>
+            )}
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Sau
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
@@ -643,53 +1122,92 @@ export function TransactionHistory({ onBack }: TransactionHistoryProps) {
             <DialogTitle>In Biên lai</DialogTitle>
           </DialogHeader>
           {selectedTransaction && (
-            <div className="space-y-4">
-              <div className="text-center">
+            <div className="space-y-6">
+              {/* Header with Logo */}
+              <div className="text-center border-b pb-4">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">S</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-blue-600">S-Chợ</h2>
+                </div>
                 <h2 className="text-2xl font-bold">BIÊN LAI THU TIỀN</h2>
-                <p className="text-gray-600">Chợ Trung tâm</p>
+                <p className="text-gray-600">Chợ Trung tâm Lạng Sơn</p>
+                <p className="text-sm text-gray-500">Quản lý chợ truyền thống</p>
               </div>
               
-              <div className="border-t border-b py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p><strong>Mã giao dịch:</strong> {selectedTransaction.transactionCode}</p>
-                    <p><strong>Ngày giờ:</strong> {format(selectedTransaction.timestamp, "HH:mm dd/MM/yyyy")}</p>
-                    <p><strong>Tiểu thương:</strong> {selectedTransaction.merchantName}</p>
-                    <p><strong>Gian hàng:</strong> {selectedTransaction.stallCode}</p>
+              {/* Transaction Details - Table Layout */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium text-right w-32">Mã giao dịch:</span>
+                    <span className="font-semibold flex-1 ml-4">{selectedTransaction.transactionCode}</span>
                   </div>
-                  <div>
-                    <p><strong>Người thu:</strong> {selectedTransaction.collectedBy || "Hệ thống"}</p>
-                    <p><strong>Hình thức:</strong> {selectedTransaction.paymentMethod}</p>
-                    <p><strong>Trạng thái:</strong> {selectedTransaction.status}</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium text-right w-32">Ngày giờ:</span>
+                    <span className="font-semibold flex-1 ml-4">{format(selectedTransaction.timestamp, "HH:mm dd/MM/yyyy")}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium text-right w-32">Tiểu thương:</span>
+                    <span className="font-semibold flex-1 ml-4">{selectedTransaction.merchantName}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium text-right w-32">Gian hàng:</span>
+                    <span className="font-semibold flex-1 ml-4">{selectedTransaction.stallCode}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium text-right w-32">Người thu:</span>
+                    <span className="font-semibold flex-1 ml-4">{selectedTransaction.collectedBy || "Hệ thống"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium text-right w-32">Hình thức:</span>
+                    <span className="font-semibold flex-1 ml-4">{selectedTransaction.paymentMethod}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium text-right w-32">Trạng thái:</span>
+                    <span className="flex-1 ml-4">
+                      {getStatusBadge(selectedTransaction.status)}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="font-semibold mb-2">Chi tiết thanh toán:</h3>
-                <div className="space-y-2">
+              {/* Payment Details */}
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-3 text-center">CHI TIẾT THANH TOÁN</h3>
+                <div className="space-y-3">
                   {selectedTransaction.invoices.map((invoice) => (
-                    <div key={invoice.id} className="flex justify-between">
-                      <span>{invoice.type} - {invoice.id}</span>
-                      <span>{invoice.amount.toLocaleString()} VND</span>
+                    <div key={invoice.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                      <div>
+                        <div className="font-medium text-sm">{invoice.type}</div>
+                        <div className="text-gray-600 text-xs">{invoice.id}</div>
+                      </div>
+                      <span className="font-semibold">{invoice.amount.toLocaleString()} VND</span>
                     </div>
                   ))}
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between font-bold">
-                      <span>Tổng cộng:</span>
-                      <span>{selectedTransaction.amount.toLocaleString()} VND</span>
+                  <div className="border-t-2 border-gray-300 pt-3">
+                    <div className="flex justify-between items-center font-bold text-lg">
+                      <span>TỔNG CỘNG:</span>
+                      <span className="text-blue-600">{selectedTransaction.amount.toLocaleString()} VND</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="text-center text-sm text-gray-600">
-                <p>Cảm ơn quý khách đã thanh toán!</p>
-                <p>Mọi thắc mắc vui lòng liên hệ Ban Quản lý Chợ</p>
+              {/* Footer */}
+              <div className="border-t pt-4 text-center">
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p className="font-medium">Cảm ơn quý khách đã thanh toán!</p>
+                  <p>Mọi thắc mắc vui lòng liên hệ Ban Quản lý Chợ</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Biên lai này có giá trị pháp lý và được lưu trữ trong hệ thống
+                  </p>
+                </div>
               </div>
 
-              <div className="flex justify-center gap-4">
-                <Button onClick={() => window.print()}>
+              {/* Action Buttons */}
+              <div className="flex justify-center gap-4 pt-4">
+                <Button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700">
                   <Printer className="w-4 h-4 mr-2" />
                   In biên lai
                 </Button>

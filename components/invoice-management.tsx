@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ArrowLeft, Plus, Eye, Bell, Trash2, Search, Filter, Download } from "lucide-react"
+
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowLeft, Bell, Download, Eye, Filter, Plus, Search, Trash2 } from "lucide-react"
+import { useState } from "react"
 
 interface Invoice {
   id: string
@@ -19,6 +20,15 @@ interface Invoice {
   dueDate: string
   status: "unpaid" | "paid" | "overdue" | "cancelled"
 }
+
+// Dữ liệu tiểu thương
+const merchants = [
+  { id: "merchant1", name: "Nguyễn Thị Lan", stall: "A01", phone: "0123456789" },
+  { id: "merchant2", name: "Trần Văn Minh", stall: "B03", phone: "0987654321" },
+  { id: "merchant3", name: "Lê Thị Hoa", stall: "C05", phone: "0123456780" },
+  { id: "merchant4", name: "Phạm Văn Đức", stall: "D07", phone: "0987654320" },
+  { id: "merchant5", name: "Hoàng Thị Mai", stall: "E09", phone: "0123456781" },
+]
 
 // Đặt khai báo invoices lên trên cùng, trước các useState
 const invoices: Invoice[] = [
@@ -84,6 +94,10 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
   const [singleStall, setSingleStall] = useState("")
   const [singleFeeType, setSingleFeeType] = useState("")
   const [singleAmount, setSingleAmount] = useState(0)
+  
+  // State cho phân trang
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -110,6 +124,16 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
     
     return matchesSearch && matchesStatus && matchesFeeType
   })
+
+  // Logic phân trang
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentInvoices = filteredInvoices.slice(startIndex, endIndex)
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -254,23 +278,44 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Tiểu thương</label>
-                  <Select value={singleMerchant} onValueChange={val => {
-                    setSingleMerchant(val)
-                    if (val === "merchant1") { setSingleStall("A01") }
-                    else if (val === "merchant2") { setSingleStall("B03") }
-                  }}>
+                  <Select 
+                    value={singleMerchant} 
+                    onValueChange={(value) => {
+                      setSingleMerchant(value)
+                      const selectedMerchant = merchants.find(m => m.id === value)
+                      if (selectedMerchant) {
+                        setSingleStall(selectedMerchant.stall)
+                      }
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn tiểu thương" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="merchant1">Nguyễn Thị Lan - A01</SelectItem>
-                      <SelectItem value="merchant2">Trần Văn Minh - B03</SelectItem>
+                      {merchants.map((merchant) => (
+                        <SelectItem key={merchant.id} value={merchant.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{merchant.name}</span>
+                            <span className="text-sm text-gray-500">Gian hàng: {merchant.stall} | SĐT: {merchant.phone}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Loại phí</label>
-                  <Select value={singleFeeType} onValueChange={setSingleFeeType}>
+                  <Select value={singleFeeType} onValueChange={(value) => {
+                    setSingleFeeType(value)
+                    // Tự động điền số tiền dựa trên loại phí
+                    if (value === "electricity") {
+                      setSingleAmount(150000) // Giá mặc định cho phí điện nước
+                    } else if (value === "rent") {
+                      setSingleAmount(500000) // Giá mặc định cho phí mặt bằng
+                    } else if (value === "sanitation") {
+                      setSingleAmount(200000) // Giá mặc định cho phí vệ sinh
+                    }
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn loại phí" />
                     </SelectTrigger>
@@ -312,6 +357,71 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
             </DialogContent>
           </Dialog>
         </div>
+      </div>
+
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Tổng hóa đơn</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredInvoices.length}</p>
+              </div>
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <span className="text-blue-600 font-semibold text-sm">H</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Chưa thanh toán</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {filteredInvoices.filter(inv => inv.status === "unpaid").length}
+                </p>
+              </div>
+              <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <span className="text-yellow-600 font-semibold text-sm">!</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Quá hạn</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {filteredInvoices.filter(inv => inv.status === "overdue").length}
+                </p>
+              </div>
+              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                <span className="text-red-600 font-semibold text-sm">⚠</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Tổng tiền</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {filteredInvoices
+                    .filter(inv => inv.status === "paid")
+                    .reduce((sum, inv) => sum + inv.amount, 0)
+                    .toLocaleString()} VND
+                </p>
+              </div>
+              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                <span className="text-green-600 font-semibold text-sm">$</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -403,34 +513,65 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
                   <th className="text-left py-3 px-4 font-medium">Tiểu thương</th>
                   <th className="text-left py-3 px-4 font-medium">Gian hàng</th>
                   <th className="text-left py-3 px-4 font-medium">Loại phí</th>
-                  <th className="text-left py-3 px-4 font-medium">Số tiền</th>
+                  <th className="text-right py-3 px-4 font-medium">Số tiền</th>
                   <th className="text-left py-3 px-4 font-medium">Ngày tạo</th>
                   <th className="text-left py-3 px-4 font-medium">Hạn thanh toán</th>
-                  <th className="text-left py-3 px-4 font-medium">Trạng thái</th>
-                  <th className="text-left py-3 px-4 font-medium">Hành động</th>
+                  <th className="text-center py-3 px-4 font-medium">Trạng thái</th>
+                  <th className="text-center py-3 px-4 font-medium">Hành động</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredInvoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-b hover:bg-gray-50">
+                {currentInvoices.map((invoice) => (
+                  <tr 
+                    key={invoice.id} 
+                    className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => { setSelectedInvoice(invoice); setShowDetail(true) }}
+                  >
                     <td className="py-3 px-4 font-medium">{invoice.id}</td>
                     <td className="py-3 px-4">{invoice.merchantName}</td>
                     <td className="py-3 px-4">{invoice.stallCode}</td>
                     <td className="py-3 px-4">{invoice.feeType}</td>
-                    <td className="py-3 px-4">{invoice.amount.toLocaleString()} VND</td>
+                    <td className="py-3 px-4 text-right font-medium">{invoice.amount.toLocaleString()} VND</td>
                     <td className="py-3 px-4">{invoice.createdDate}</td>
                     <td className="py-3 px-4">{invoice.dueDate}</td>
-                    <td className="py-3 px-4">{getStatusBadge(invoice.status)}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedInvoice(invoice); setShowDetail(true) }}>
+                    <td className="py-3 px-4 text-center">{getStatusBadge(invoice.status)}</td>
+                    <td className="py-3 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedInvoice(invoice)
+                            setShowDetail(true)
+                          }}
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedInvoice(invoice); setShowNotify(true) }}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedInvoice(invoice)
+                            setShowNotify(true)
+                          }}
+                        >
                           <Bell className="w-4 h-4" />
                         </Button>
                         {invoice.status === "unpaid" && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => { setSelectedInvoice(invoice); setShowCancel(true) }}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedInvoice(invoice)
+                              setShowCancel(true)
+                            }}
+                          >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         )}
@@ -441,23 +582,142 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-700">
+                  Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredInvoices.length)} trong tổng số {filteredInvoices.length} hóa đơn
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Hiển thị:</span>
+                  <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => {
+                      setItemsPerPage(parseInt(value))
+                      setCurrentPage(1)
+                    }}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-gray-600">mục/trang</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Trước
+                </Button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const page = i + 1
+                  return (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(page)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {page}
+                    </Button>
+                  )
+                })}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Sau
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       <Dialog open={showDetail} onOpenChange={setShowDetail}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Chi tiết hóa đơn</DialogTitle>
           </DialogHeader>
           {selectedInvoice && (
-            <div className="space-y-2">
-              <div><b>Mã HĐ:</b> {selectedInvoice.id}</div>
-              <div><b>Tiểu thương:</b> {selectedInvoice.merchantName}</div>
-              <div><b>Gian hàng:</b> {selectedInvoice.stallCode}</div>
-              <div><b>Loại phí:</b> {selectedInvoice.feeType}</div>
-              <div><b>Số tiền:</b> {selectedInvoice.amount.toLocaleString()} VND</div>
-              <div><b>Ngày tạo:</b> {selectedInvoice.createdDate}</div>
-              <div><b>Hạn thanh toán:</b> {selectedInvoice.dueDate}</div>
-              <div><b>Trạng thái:</b> {getStatusBadge(selectedInvoice.status)}</div>
+            <div className="space-y-6">
+              {/* Thông tin hóa đơn */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Mã HĐ:</span>
+                    <span className="font-medium">{selectedInvoice.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Tiểu thương:</span>
+                    <span className="font-medium">{selectedInvoice.merchantName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Gian hàng:</span>
+                    <span className="font-medium">{selectedInvoice.stallCode}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Loại phí:</span>
+                    <span className="font-medium">{selectedInvoice.feeType}</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Số tiền:</span>
+                    <span className="font-bold text-lg text-green-600">{selectedInvoice.amount.toLocaleString()} VND</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Ngày tạo:</span>
+                    <span className="font-medium">{selectedInvoice.createdDate}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Hạn thanh toán:</span>
+                    <span className="font-medium">{selectedInvoice.dueDate}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Trạng thái:</span>
+                    <span>{getStatusBadge(selectedInvoice.status)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Các nút hành động */}
+              {selectedInvoice.status === "unpaid" && (
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Hành động</h3>
+                  <div className="flex gap-2">
+                    <Button className="flex-1" onClick={() => {
+                      setShowDetail(false)
+                      // Có thể điều hướng đến trang ghi nhận thanh toán
+                      console.log("Điều hướng đến ghi nhận thanh toán cho hóa đơn:", selectedInvoice.id)
+                    }}>
+                      <Eye className="w-4 h-4 mr-2" />
+                      Ghi nhận thanh toán
+                    </Button>
+                    <Button variant="outline" className="flex-1" onClick={() => {
+                      setShowDetail(false)
+                      setShowNotify(true)
+                    }}>
+                      <Bell className="w-4 h-4 mr-2" />
+                      Gửi nhắc nhở
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
