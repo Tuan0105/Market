@@ -1,36 +1,34 @@
 "use client"
 
-import { useState } from "react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { 
-  ArrowLeft, 
-  LogOut, 
-  User, 
-  Building2, 
-  FileText, 
-  CreditCard, 
-  Bell, 
-  Settings,
-  History,
-  MessageSquare,
-  QrCode,
-  CheckCircle,
-  AlertCircle,
-  Calendar,
-  DollarSign,
-  Receipt,
-  Send,
-  Upload,
-  MapPin
-} from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
 import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/use-toast"
+import {
+    AlertCircle,
+    ArrowLeft,
+    Bell,
+    Building2,
+    CheckCircle,
+    CreditCard,
+    DollarSign,
+    FileText,
+    History,
+    LogOut,
+    MapPin,
+    MessageSquare,
+    QrCode,
+    Send,
+    Settings,
+    Upload,
+    User
+} from "lucide-react"
+import { useState } from "react"
 
 interface UserDashboardProps {
   userData: any

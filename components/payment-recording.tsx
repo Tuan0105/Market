@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useStallData } from "@/lib/stall-data-context"
 import { AlertCircle, ArrowLeft, CheckCircle, Eye, FileText, Printer, Receipt, Search } from "lucide-react"
 import { useState } from "react"
 
@@ -43,6 +44,7 @@ interface Invoice {
 }
 
 export function PaymentRecording({ onBack }: PaymentRecordingProps) {
+  const { stalls, invoices } = useStallData()
   const [currentStep, setCurrentStep] = useState<Step>("search")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null)
@@ -56,77 +58,38 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
   const [showInvoiceDetailDialog, setShowInvoiceDetailDialog] = useState(false)
   const [selectedInvoiceForDetail, setSelectedInvoiceForDetail] = useState<Invoice | null>(null)
 
-  // Sample data
-  const merchants: Merchant[] = [
-    {
-      id: "1",
-      name: "Nguyễn Thị Lan",
-      stallId: "A01",
-      phone: "0901234567",
-      totalDebt: 8200000,
-    },
-    {
-      id: "2",
-      name: "Trần Văn Hùng",
-      stallId: "B12",
-      phone: "0912345678",
-      totalDebt: 5500000,
-    },
-    {
-      id: "3",
-      name: "Lê Thị Mai",
-      stallId: "C05",
-      phone: "0923456789",
-      totalDebt: 3200000,
-    },
-  ]
+  // Convert stalls to merchants format
+  const merchants: Merchant[] = stalls
+    .filter(stall => stall.merchantName && stall.status === "occupied")
+    .map(stall => ({
+      id: stall.id,
+      name: stall.merchantName,
+      stallId: stall.code,
+      phone: stall.phone || "",
+      totalDebt: stall.currentDebt || 0,
+    }))
 
-  const invoices: Record<string, Invoice[]> = {
-    "1": [
-      {
-        id: "INV-082025-A01-001",
-        type: "Phí mặt bằng",
-        amount: 5000000,
-        dueDate: "2025-08-15",
-        status: "unpaid",
-        description: "Phí thuê mặt bằng tháng 8/2025",
-      },
-      {
-        id: "INV-082025-A01-002",
-        type: "Phí điện",
-        amount: 1200000,
-        dueDate: "2025-08-20",
-        status: "unpaid",
-        description: "Tiền điện tháng 7/2025",
-      },
-      {
-        id: "INV-082025-A01-003",
-        type: "Phí vệ sinh",
-        amount: 2000000,
-        dueDate: "2025-08-25",
-        status: "unpaid",
-        description: "Phí vệ sinh môi trường tháng 8/2025",
-      },
-    ],
-    "2": [
-      {
-        id: "INV-082025-B12-001",
-        type: "Phí mặt bằng",
-        amount: 3500000,
-        dueDate: "2025-08-10",
-        status: "unpaid",
-        description: "Phí thuê mặt bằng tháng 8/2025",
-      },
-      {
-        id: "INV-082025-B12-002",
-        type: "Phí điện",
-        amount: 2000000,
-        dueDate: "2025-08-15",
-        status: "unpaid",
-        description: "Tiền điện tháng 7/2025",
-      },
-    ],
-  }
+  // Convert invoices to the format expected by this component
+  const merchantInvoices: Record<string, Invoice[]> = {}
+  
+  invoices.forEach(invoice => {
+    const stall = stalls.find(s => s.code === invoice.stallCode)
+    if (stall) {
+      if (!merchantInvoices[stall.id]) {
+        merchantInvoices[stall.id] = []
+      }
+      
+      merchantInvoices[stall.id].push({
+        id: invoice.id,
+        type: invoice.feeType,
+        amount: invoice.amount,
+        dueDate: invoice.dueDate,
+        status: invoice.status === "overdue" ? "unpaid" : invoice.status === "cancelled" ? "unpaid" : invoice.status,
+        description: invoice.description || invoice.feeType,
+      })
+    }
+  })
+
 
   const handleSearch = () => {
     setError("")
@@ -157,7 +120,7 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
     
     // Tự động điền tổng số tiền của các hóa đơn được chọn
     const totalAmount = newSelectedInvoices.reduce((sum, id) => {
-      const invoice = Object.values(invoices).flat().find(inv => inv.id === id)
+      const invoice = Object.values(merchantInvoices).flat().find(inv => inv.id === id)
       return sum + (invoice?.amount || 0)
     }, 0)
     
@@ -166,9 +129,9 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
 
   const calculateTotalAmount = () => {
     if (!selectedMerchant) return 0
-    const merchantInvoices = invoices[selectedMerchant.id] || []
+    const invoices = merchantInvoices[selectedMerchant.id] || []
     return selectedInvoices.reduce((total, invoiceId) => {
-      const invoice = merchantInvoices.find((inv) => inv.id === invoiceId)
+      const invoice = invoices.find((inv) => inv.id === invoiceId)
       return total + (invoice?.amount || 0)
     }, 0)
   }
@@ -278,7 +241,7 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
   const renderInputStep = () => {
     if (!selectedMerchant) return null
 
-    const merchantInvoices = invoices[selectedMerchant.id] || []
+    const invoices = merchantInvoices[selectedMerchant.id] || []
     const totalSelectedAmount = calculateTotalAmount()
 
     return (
@@ -316,7 +279,7 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {merchantInvoices.map((invoice) => (
+              {invoices.map((invoice) => (
                 <div key={invoice.id} className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                   <Checkbox
                     id={invoice.id}
@@ -468,9 +431,9 @@ export function PaymentRecording({ onBack }: PaymentRecordingProps) {
   const renderVerificationStep = () => {
     if (!selectedMerchant) return null
 
-    const merchantInvoices = invoices[selectedMerchant.id] || []
+    const invoices = merchantInvoices[selectedMerchant.id] || []
     const selectedInvoiceDetails = selectedInvoices
-      .map((id) => merchantInvoices.find((inv) => inv.id === id))
+      .map((id) => invoices.find((inv) => inv.id === id))
       .filter(Boolean) as Invoice[]
     const totalAmount = Number.parseFloat(paymentAmount) || 0
     const totalInvoiceAmount = calculateTotalAmount()

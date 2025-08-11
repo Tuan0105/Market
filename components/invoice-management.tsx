@@ -7,69 +7,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Invoice, useStallData } from "@/lib/stall-data-context"
 import { ArrowLeft, Bell, Download, Eye, Filter, Plus, Search, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
-interface Invoice {
-  id: string
-  merchantName: string
-  stallCode: string
-  feeType: string
-  amount: number
-  createdDate: string
-  dueDate: string
-  status: "unpaid" | "paid" | "overdue" | "cancelled"
-}
 
-// Dữ liệu tiểu thương
-const merchants = [
-  { id: "merchant1", name: "Nguyễn Thị Lan", stall: "A01", phone: "0123456789" },
-  { id: "merchant2", name: "Trần Văn Minh", stall: "B03", phone: "0987654321" },
-  { id: "merchant3", name: "Lê Thị Hoa", stall: "C05", phone: "0123456780" },
-  { id: "merchant4", name: "Phạm Văn Đức", stall: "D07", phone: "0987654320" },
-  { id: "merchant5", name: "Hoàng Thị Mai", stall: "E09", phone: "0123456781" },
-]
-
-// Đặt khai báo invoices lên trên cùng, trước các useState
-const invoices: Invoice[] = [
-  {
-    id: "INV-001",
-    merchantName: "Nguyễn Thị Lan",
-    stallCode: "A01",
-    feeType: "Phí điện nước",
-    amount: 150000,
-    createdDate: "2025-08-01",
-    dueDate: "2025-08-15",
-    status: "unpaid"
-  },
-  {
-    id: "INV-002", 
-    merchantName: "Trần Văn Minh",
-    stallCode: "B03",
-    feeType: "Phí mặt bằng",
-    amount: 500000,
-    createdDate: "2025-08-01",
-    dueDate: "2025-08-15",
-    status: "paid"
-  },
-  {
-    id: "INV-003",
-    merchantName: "Lê Thị Hoa",
-    stallCode: "C05",
-    feeType: "Phí vệ sinh",
-    amount: 200000,
-    createdDate: "2025-08-01",
-    dueDate: "2025-08-15",
-    status: "overdue"
-  }
-]
 
 export function InvoiceManagement({ onBack }: { onBack: () => void }) {
+  const { invoices, setInvoices, stalls } = useStallData()
+  
+  // Lấy danh sách tiểu thương từ stalls
+  const getMerchants = () => {
+    return stalls
+      .filter(stall => stall.merchantName && stall.status === "occupied")
+      .map(stall => ({
+        id: stall.id,
+        name: stall.merchantName,
+        stall: stall.code,
+        phone: stall.phone || ""
+      }))
+  }
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [feeTypeFilter, setFeeTypeFilter] = useState("all")
   const [monthFilter, setMonthFilter] = useState("all")
-  const [invoiceList, setInvoiceList] = useState<Invoice[]>([...invoices])
+  const [invoiceList, setInvoiceList] = useState<Invoice[]>(invoices)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [showDetail, setShowDetail] = useState(false)
   const [showNotify, setShowNotify] = useState(false)
@@ -78,11 +40,30 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
   const [showSingleDialog, setShowSingleDialog] = useState(false)
   // Thêm state cho loại phí bulk
   const [bulkFeeType, setBulkFeeType] = useState<string>("")
-  const [bulkRows, setBulkRows] = useState([
-    { stall: "A01", old: 0, new: 0, area: 10, amount: 0, checked: true },
-    { stall: "A02", old: 0, new: 0, area: 12, amount: 0, checked: true },
-    { stall: "A03", old: 0, new: 0, area: 8, amount: 0, checked: true },
-  ])
+  const [bulkRows, setBulkRows] = useState(() => {
+    const occupiedStalls = stalls.filter(stall => stall.status === "occupied")
+    return occupiedStalls.slice(0, 3).map(stall => ({
+      stall: stall.code,
+      old: 0,
+      new: 0,
+      area: stall.area,
+      amount: 0,
+      checked: true
+    }))
+  })
+
+  // Cập nhật bulkRows khi stalls thay đổi
+  useEffect(() => {
+    const occupiedStalls = stalls.filter(stall => stall.status === "occupied")
+    setBulkRows(occupiedStalls.slice(0, 3).map(stall => ({
+      stall: stall.code,
+      old: 0,
+      new: 0,
+      area: stall.area,
+      amount: 0,
+      checked: true
+    })))
+  }, [stalls])
   const FEE_CONFIG = {
     electricity: 3500, // VND/kWh
     rent: 500000,      // VND/tháng
@@ -94,6 +75,11 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
   const [singleStall, setSingleStall] = useState("")
   const [singleFeeType, setSingleFeeType] = useState("")
   const [singleAmount, setSingleAmount] = useState(0)
+
+  // Cập nhật invoiceList khi invoices thay đổi
+  useEffect(() => {
+    setInvoiceList(invoices)
+  }, [invoices])
   
   // State cho phân trang
   const [currentPage, setCurrentPage] = useState(1)
@@ -241,23 +227,24 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
                 <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Hủy</Button>
                 <Button onClick={() => {
                   // Thêm hóa đơn mẫu vào danh sách
-                  const newInvoices: Invoice[] = bulkRows.filter(r => r.checked).map(row => {
+                  const newInvoices: Invoice[] = bulkRows.filter(r => r.checked).map((row, index) => {
                     let amount = 0
                     if (bulkFeeType === "electricity") amount = row.amount
                     else if (bulkFeeType === "sanitation") amount = row.amount
                     else if (bulkFeeType === "rent") amount = FEE_CONFIG.rent
+                    const merchant = getMerchants().find(m => m.stall === row.stall)
                     return {
-                      id: `INV-${invoiceList.length + 1}`,
-                      merchantName: "Hàng loạt",
+                      id: `INV-${Date.now()}-${index}`,
+                      merchantName: merchant?.name || "Hàng loạt",
                       stallCode: row.stall,
                       feeType: bulkFeeType === "electricity" ? "Phí điện nước" : bulkFeeType === "sanitation" ? "Phí vệ sinh" : "Phí mặt bằng",
                       amount,
-                      createdDate: "2025-08-01",
-                      dueDate: "2025-08-15",
+                      createdDate: new Date().toISOString().split('T')[0],
+                      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                       status: "unpaid" as const
                     }
                   })
-                  setInvoiceList(list => [...list, ...newInvoices])
+                  setInvoices([...invoices, ...newInvoices])
                   setShowBulkDialog(false)
                 }}>Xác nhận tạo</Button>
               </div>
@@ -282,7 +269,7 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
                     value={singleMerchant} 
                     onValueChange={(value) => {
                       setSingleMerchant(value)
-                      const selectedMerchant = merchants.find(m => m.id === value)
+                      const selectedMerchant = getMerchants().find(m => m.id === value)
                       if (selectedMerchant) {
                         setSingleStall(selectedMerchant.stall)
                       }
@@ -292,7 +279,7 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
                       <SelectValue placeholder="Chọn tiểu thương" />
                     </SelectTrigger>
                     <SelectContent>
-                      {merchants.map((merchant) => (
+                      {getMerchants().map((merchant) => (
                         <SelectItem key={merchant.id} value={merchant.id}>
                           <div className="flex flex-col">
                             <span className="font-medium">{merchant.name}</span>
@@ -333,19 +320,19 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setShowSingleDialog(false)}>Hủy</Button>
                   <Button onClick={() => {
-                    setInvoiceList(list => [
-                      ...list,
-                      {
-                        id: `INV-${list.length + 1}`,
-                        merchantName: singleMerchant === "merchant1" ? "Nguyễn Thị Lan" : singleMerchant === "merchant2" ? "Trần Văn Minh" : "",
-                        stallCode: singleStall,
-                        feeType: singleFeeType === "electricity" ? "Phí điện nước" : singleFeeType === "sanitation" ? "Phí vệ sinh" : "Phí mặt bằng",
-                        amount: singleAmount,
-                        createdDate: "2025-08-01",
-                        dueDate: "2025-08-15",
-                        status: "unpaid"
-                      }
-                    ])
+                    const merchants = getMerchants()
+                    const selectedMerchant = merchants.find(m => m.id === singleMerchant)
+                    const newInvoice: Invoice = {
+                      id: `INV-${Date.now()}`,
+                      merchantName: selectedMerchant?.name || "",
+                      stallCode: singleStall,
+                      feeType: singleFeeType === "electricity" ? "Phí điện nước" : singleFeeType === "sanitation" ? "Phí vệ sinh" : "Phí mặt bằng",
+                      amount: singleAmount,
+                      createdDate: new Date().toISOString().split('T')[0],
+                      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                      status: "unpaid"
+                    }
+                    setInvoices([...invoices, newInvoice])
                     setShowSingleDialog(false)
                     setSingleMerchant("")
                     setSingleStall("")
@@ -744,7 +731,7 @@ export function InvoiceManagement({ onBack }: { onBack: () => void }) {
             <Button variant="outline" onClick={() => setShowCancel(false)}>Không</Button>
             <Button onClick={() => {
               if (selectedInvoice) {
-                setInvoiceList(list => list.map(inv => inv.id === selectedInvoice.id ? { ...inv, status: "cancelled" } : inv))
+                setInvoices(invoices.map(inv => inv.id === selectedInvoice.id ? { ...inv, status: "cancelled" } : inv))
               }
               setShowCancel(false)
             }}>Hủy hóa đơn</Button>

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, ReactNode } from "react"
+import { createContext, ReactNode, useContext, useState } from "react"
 
 export interface Stall {
   id: string
@@ -16,6 +16,15 @@ export interface Stall {
   y?: number
   width?: number
   height?: number
+  // Thêm thông tin cho Tài chính và Hồ sơ tiểu thương
+  phone?: string
+  email?: string
+  address?: string
+  idNumber?: string
+  contractStartDate?: string
+  depositAmount?: number
+  currentDebt?: number
+  lastPaymentDate?: string
 }
 
 export interface Zone {
@@ -24,6 +33,41 @@ export interface Zone {
   category: string
   color: string
   stalls: Stall[]
+}
+
+export interface Transaction {
+  id: string
+  transactionCode: string
+  timestamp: Date
+  merchantName: string
+  stallCode: string
+  paymentDescription: string
+  amount: number
+  paymentMethod: "Tiền mặt" | "Chuyển khoản" | "QR Code"
+  status: "Thành công" | "Thất bại" | "Đang xử lý"
+  collectedBy?: string
+  invoices: InvoiceItem[]
+  debtBefore: number
+  debtAfter: number
+}
+
+export interface Invoice {
+  id: string
+  merchantName: string
+  stallCode: string
+  feeType: string
+  amount: number
+  createdDate: string
+  dueDate: string
+  status: "unpaid" | "paid" | "overdue" | "cancelled"
+  invoiceCode?: string
+  description?: string
+}
+
+export interface InvoiceItem {
+  id: string
+  type: string
+  amount: number
 }
 
 export interface Floor {
@@ -53,9 +97,24 @@ interface StallDataContextType {
   updateStallInZone: (floorId: string, zoneId: string, stallId: string, updates: Partial<Stall>) => void
   deleteStallFromZone: (floorId: string, zoneId: string, stallId: string) => void
   
+  // Financial Data
+  transactions: Transaction[]
+  setTransactions: (transactions: Transaction[]) => void
+  addTransaction: (transaction: Transaction) => void
+  updateTransaction: (transactionId: string, updates: Partial<Transaction>) => void
+  deleteTransaction: (transactionId: string) => void
+  
+  // Invoice Data
+  invoices: Invoice[]
+  setInvoices: (invoices: Invoice[]) => void
+  addInvoice: (invoice: Invoice) => void
+  updateInvoice: (invoiceId: string, updates: Partial<Invoice>) => void
+  deleteInvoice: (invoiceId: string) => void
+  
   // Synchronization
   syncStallData: () => void
   syncMapData: () => void
+  syncFinancialData: () => void
 }
 
 const StallDataContext = createContext<StallDataContextType | undefined>(undefined)
@@ -72,6 +131,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2025-12-31",
       monthlyRent: 5000000,
+      phone: "0901234567",
+      email: "nguyenthilan@email.com",
+      address: "123 Đường ABC, Quận 1, TP.HCM",
+      idNumber: "123456789012",
+      contractStartDate: "2024-01-15",
+      depositAmount: 10000000,
+      currentDebt: 8200000,
+      lastPaymentDate: "2025-08-05",
     },
     {
       id: "2",
@@ -92,6 +159,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "expiring",
       contractEndDate: "2025-09-15",
       monthlyRent: 4500000,
+      phone: "0912345678",
+      email: "tranvanhung@email.com",
+      address: "456 Đường XYZ, Quận 3, TP.HCM",
+      idNumber: "234567890123",
+      contractStartDate: "2024-02-01",
+      depositAmount: 9000000,
+      currentDebt: 5500000,
+      lastPaymentDate: "2025-08-05",
     },
     {
       id: "4",
@@ -102,6 +177,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2026-03-20",
       monthlyRent: 4000000,
+      phone: "0923456789",
+      email: "lethimai@email.com",
+      address: "789 Đường DEF, Quận 5, TP.HCM",
+      idNumber: "345678901234",
+      contractStartDate: "2024-03-01",
+      depositAmount: 8000000,
+      currentDebt: 3200000,
+      lastPaymentDate: "2025-08-05",
     },
     {
       id: "5",
@@ -122,6 +205,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2025-11-30",
       monthlyRent: 7500000,
+      phone: "0934567890",
+      email: "phamvannam@email.com",
+      address: "321 Đường GHI, Quận 7, TP.HCM",
+      idNumber: "456789012345",
+      contractStartDate: "2024-04-01",
+      depositAmount: 15000000,
+      currentDebt: 7500000,
+      lastPaymentDate: "2025-08-05",
     },
     {
       id: "7",
@@ -132,6 +223,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2026-01-15",
       monthlyRent: 9000000,
+      phone: "0945678901",
+      email: "hoangthihoa@email.com",
+      address: "654 Đường JKL, Quận 8, TP.HCM",
+      idNumber: "567890123456",
+      contractStartDate: "2024-05-01",
+      depositAmount: 18000000,
+      currentDebt: 4200000,
+      lastPaymentDate: "2025-08-05",
     },
     {
       id: "8",
@@ -142,6 +241,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "expiring",
       contractEndDate: "2025-08-20",
       monthlyRent: 5500000,
+      phone: "0956789012",
+      email: "vudinhlong@email.com",
+      address: "987 Đường MNO, Quận 10, TP.HCM",
+      idNumber: "678901234567",
+      contractStartDate: "2024-06-01",
+      depositAmount: 11000000,
+      currentDebt: 0,
+      lastPaymentDate: "2025-08-05",
     },
     {
       id: "9",
@@ -173,6 +280,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2025-10-15",
       monthlyRent: 5200000,
+      phone: "0967890123",
+      email: "ngothibinh@email.com",
+      address: "147 Đường PQR, Quận 11, TP.HCM",
+      idNumber: "789012345678",
+      contractStartDate: "2024-07-01",
+      depositAmount: 10400000,
+      currentDebt: 0,
+      lastPaymentDate: "2025-08-06",
     },
     {
       id: "12",
@@ -193,6 +308,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2026-02-28",
       monthlyRent: 4200000,
+      phone: "0978901234",
+      email: "dovanminh@email.com",
+      address: "258 Đường STU, Quận 12, TP.HCM",
+      idNumber: "890123456789",
+      contractStartDate: "2024-08-01",
+      depositAmount: 8400000,
+      currentDebt: 0,
+      lastPaymentDate: "2025-08-06",
     },
     {
       id: "14",
@@ -213,6 +336,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2025-12-10",
       monthlyRent: 3800000,
+      phone: "0989012345",
+      email: "lythihuong@email.com",
+      address: "369 Đường VWX, Quận Bình Tân, TP.HCM",
+      idNumber: "901234567890",
+      contractStartDate: "2024-09-01",
+      depositAmount: 7600000,
+      currentDebt: 0,
+      lastPaymentDate: "2025-08-06",
     },
     {
       id: "16",
@@ -233,6 +364,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2026-04-15",
       monthlyRent: 8500000,
+      phone: "0990123456",
+      email: "trinhvanson@email.com",
+      address: "741 Đường YZA, Quận Tân Bình, TP.HCM",
+      idNumber: "012345678901",
+      contractStartDate: "2024-10-01",
+      depositAmount: 17000000,
+      currentDebt: 0,
+      lastPaymentDate: "2025-08-06",
     },
     {
       id: "18",
@@ -253,6 +392,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2025-11-20",
       monthlyRent: 3600000,
+      phone: "0991234567",
+      email: "phanthinga@email.com",
+      address: "852 Đường BCD, Quận Tân Phú, TP.HCM",
+      idNumber: "123456789012",
+      contractStartDate: "2024-11-01",
+      depositAmount: 7200000,
+      currentDebt: 0,
+      lastPaymentDate: "2025-08-06",
     },
     {
       id: "20",
@@ -273,6 +420,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2026-01-30",
       monthlyRent: 6800000,
+      phone: "0992345678",
+      email: "hoangvantu@email.com",
+      address: "963 Đường EFG, Quận Gò Vấp, TP.HCM",
+      idNumber: "234567890123",
+      contractStartDate: "2024-12-01",
+      depositAmount: 13600000,
+      currentDebt: 0,
+      lastPaymentDate: "2025-08-06",
     },
     {
       id: "22",
@@ -293,6 +448,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2025-09-25",
       monthlyRent: 4400000,
+      phone: "0993456789",
+      email: "vothilan@email.com",
+      address: "159 Đường HIJ, Quận Phú Nhuận, TP.HCM",
+      idNumber: "345678901234",
+      contractStartDate: "2025-01-01",
+      depositAmount: 8800000,
+      currentDebt: 0,
+      lastPaymentDate: "2025-08-07",
     },
     {
       id: "24",
@@ -313,6 +476,14 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
       status: "occupied",
       contractEndDate: "2026-03-10",
       monthlyRent: 9200000,
+      phone: "0994567890",
+      email: "nguyenvanhai@email.com",
+      address: "753 Đường KLM, Quận Bình Thạnh, TP.HCM",
+      idNumber: "456789012345",
+      contractStartDate: "2025-02-01",
+      depositAmount: 18400000,
+      currentDebt: 0,
+      lastPaymentDate: "2025-08-07",
     },
   ])
 
@@ -733,6 +904,884 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
     ]
   })
 
+  // Financial Data
+  const [transactions, setTransactions] = useState<Transaction[]>([
+    {
+      id: "1",
+      transactionCode: "GD-20250805-001",
+      timestamp: new Date("2025-08-05T10:30:00"),
+      merchantName: "Nguyễn Thị Lan",
+      stallCode: "A01",
+      paymentDescription: "Thanh toán phí mặt bằng và điện, nước T08/2025",
+      amount: 5500000,
+      paymentMethod: "Tiền mặt",
+      status: "Thành công",
+      collectedBy: "Trần Văn An",
+      invoices: [
+        { id: "INV-082025-A01", type: "Phí mặt bằng", amount: 5000000 },
+        { id: "INV-DN-082025-A01", type: "Phí điện, nước", amount: 500000 }
+      ] as InvoiceItem[],
+      debtBefore: 5500000,
+      debtAfter: 0
+    },
+    {
+      id: "2",
+      transactionCode: "GD-20250805-002",
+      timestamp: new Date("2025-08-05T11:15:00"),
+      merchantName: "Trần Văn Hùng",
+      stallCode: "B01",
+      paymentDescription: "Thanh toán phí mặt bằng T08/2025",
+      amount: 4500000,
+      paymentMethod: "Chuyển khoản",
+      status: "Thành công",
+      collectedBy: "Nguyễn Thị Hoa",
+      invoices: [
+        { id: "INV-082025-B01", type: "Phí mặt bằng", amount: 4500000 }
+      ],
+      debtBefore: 4500000,
+      debtAfter: 0
+    },
+    {
+      id: "3",
+      transactionCode: "GD-20250805-003",
+      timestamp: new Date("2025-08-05T14:20:00"),
+      merchantName: "Lê Thị Mai",
+      stallCode: "B02",
+      paymentDescription: "Thanh toán phí mặt bằng và vệ sinh T08/2025",
+      amount: 4200000,
+      paymentMethod: "QR Code",
+      status: "Thành công",
+      collectedBy: "Trần Văn An",
+      invoices: [
+        { id: "INV-082025-B02", type: "Phí mặt bằng", amount: 4000000 },
+        { id: "INV-VS-082025-B02", type: "Phí vệ sinh", amount: 200000 }
+      ],
+      debtBefore: 4200000,
+      debtAfter: 0
+    },
+    {
+      id: "4",
+      transactionCode: "GD-20250805-004",
+      timestamp: new Date("2025-08-05T15:45:00"),
+      merchantName: "Phạm Văn Nam",
+      stallCode: "C02",
+      paymentDescription: "Thanh toán phí mặt bằng T08/2025",
+      amount: 7500000,
+      paymentMethod: "Chuyển khoản",
+      status: "Thành công",
+      collectedBy: "Lê Văn Minh",
+      invoices: [
+        { id: "INV-082025-C02", type: "Phí mặt bằng", amount: 7500000 }
+      ],
+      debtBefore: 7500000,
+      debtAfter: 0
+    },
+    {
+      id: "5",
+      transactionCode: "GD-20250805-005",
+      timestamp: new Date("2025-08-05T16:20:00"),
+      merchantName: "Hoàng Thị Hoa",
+      stallCode: "D01",
+      paymentDescription: "Thanh toán phí mặt bằng và điện, nước T08/2025",
+      amount: 9500000,
+      paymentMethod: "Tiền mặt",
+      status: "Thành công",
+      collectedBy: "Trần Văn An",
+      invoices: [
+        { id: "INV-082025-D01", type: "Phí mặt bằng", amount: 9000000 },
+        { id: "INV-DN-082025-D01", type: "Phí điện, nước", amount: 500000 }
+      ] as InvoiceItem[],
+      debtBefore: 9500000,
+      debtAfter: 0
+    },
+    {
+      id: "6",
+      transactionCode: "GD-20250805-006",
+      timestamp: new Date("2025-08-05T17:10:00"),
+      merchantName: "Vũ Đình Long",
+      stallCode: "D02",
+      paymentDescription: "Thanh toán phí mặt bằng T08/2025",
+      amount: 5500000,
+      paymentMethod: "QR Code",
+      status: "Thành công",
+      collectedBy: "Nguyễn Thị Hoa",
+      invoices: [
+        { id: "INV-082025-D02", type: "Phí mặt bằng", amount: 5500000 }
+      ],
+      debtBefore: 5500000,
+      debtAfter: 0
+    },
+    {
+      id: "7",
+      transactionCode: "GD-20250806-001",
+      timestamp: new Date("2025-08-06T09:15:00"),
+      merchantName: "Ngô Thị Bình",
+      stallCode: "A03",
+      paymentDescription: "Thanh toán phí mặt bằng và vệ sinh T08/2025",
+      amount: 5400000,
+      paymentMethod: "Chuyển khoản",
+      status: "Thành công",
+      collectedBy: "Lê Văn Minh",
+      invoices: [
+        { id: "INV-082025-A03", type: "Phí mặt bằng", amount: 5200000 },
+        { id: "INV-VS-082025-A03", type: "Phí vệ sinh", amount: 200000 }
+      ] as InvoiceItem[],
+      debtBefore: 5400000,
+      debtAfter: 0
+    },
+    {
+      id: "8",
+      transactionCode: "GD-20250806-002",
+      timestamp: new Date("2025-08-06T10:30:00"),
+      merchantName: "Đỗ Văn Minh",
+      stallCode: "B03",
+      paymentDescription: "Thanh toán phí mặt bằng T08/2025",
+      amount: 4200000,
+      paymentMethod: "Tiền mặt",
+      status: "Thành công",
+      collectedBy: "Trần Văn An",
+      invoices: [
+        { id: "INV-082025-B03", type: "Phí mặt bằng", amount: 4200000 }
+      ],
+      debtBefore: 4200000,
+      debtAfter: 0
+    },
+    {
+      id: "9",
+      transactionCode: "GD-20250806-003",
+      timestamp: new Date("2025-08-06T11:45:00"),
+      merchantName: "Lý Thị Hương",
+      stallCode: "C03",
+      paymentDescription: "Thanh toán phí mặt bằng và điện, nước T08/2025",
+      amount: 4000000,
+      paymentMethod: "Chuyển khoản",
+      status: "Thành công",
+      collectedBy: "Nguyễn Thị Hoa",
+      invoices: [
+        { id: "INV-082025-C03", type: "Phí mặt bằng", amount: 3800000 },
+        { id: "INV-DN-082025-C03", type: "Phí điện, nước", amount: 200000 }
+      ] as InvoiceItem[],
+      debtBefore: 4000000,
+      debtAfter: 0
+    },
+    {
+      id: "10",
+      transactionCode: "GD-20250806-004",
+      timestamp: new Date("2025-08-06T14:20:00"),
+      merchantName: "Trịnh Văn Sơn",
+      stallCode: "D03",
+      paymentDescription: "Thanh toán phí mặt bằng T08/2025",
+      amount: 8500000,
+      paymentMethod: "QR Code",
+      status: "Thành công",
+      collectedBy: "Lê Văn Minh",
+      invoices: [
+        { id: "INV-082025-D03", type: "Phí mặt bằng", amount: 8500000 }
+      ],
+      debtBefore: 8500000,
+      debtAfter: 0
+    },
+    {
+      id: "11",
+      transactionCode: "GD-20250806-005",
+      timestamp: new Date("2025-08-06T15:30:00"),
+      merchantName: "Phan Thị Nga",
+      stallCode: "E03",
+      paymentDescription: "Thanh toán phí mặt bằng và vệ sinh T08/2025",
+      amount: 3800000,
+      paymentMethod: "Tiền mặt",
+      status: "Thành công",
+      collectedBy: "Trần Văn An",
+      invoices: [
+        { id: "INV-082025-E03", type: "Phí mặt bằng", amount: 3600000 },
+        { id: "INV-VS-082025-E03", type: "Phí vệ sinh", amount: 200000 }
+      ] as InvoiceItem[],
+      debtBefore: 3800000,
+      debtAfter: 0
+    },
+    {
+      id: "12",
+      transactionCode: "GD-20250806-006",
+      timestamp: new Date("2025-08-06T16:45:00"),
+      merchantName: "Hoàng Văn Tú",
+      stallCode: "A05",
+      paymentDescription: "Thanh toán phí mặt bằng T08/2025",
+      amount: 6800000,
+      paymentMethod: "Chuyển khoản",
+      status: "Thành công",
+      collectedBy: "Nguyễn Thị Hoa",
+      invoices: [
+        { id: "INV-082025-A05", type: "Phí mặt bằng", amount: 6800000 }
+      ],
+      debtBefore: 6800000,
+      debtAfter: 0
+    },
+    {
+      id: "13",
+      transactionCode: "GD-20250807-001",
+      timestamp: new Date("2025-08-07T09:00:00"),
+      merchantName: "Võ Thị Lan",
+      stallCode: "B05",
+      paymentDescription: "Thanh toán phí mặt bằng và điện, nước T08/2025",
+      amount: 4600000,
+      paymentMethod: "QR Code",
+      status: "Thành công",
+      collectedBy: "Lê Văn Minh",
+      invoices: [
+        { id: "INV-082025-B05", type: "Phí mặt bằng", amount: 4400000 },
+        { id: "INV-DN-082025-B05", type: "Phí điện, nước", amount: 200000 }
+      ] as InvoiceItem[],
+      debtBefore: 4600000,
+      debtAfter: 0
+    },
+    {
+      id: "14",
+      transactionCode: "GD-20250807-002",
+      timestamp: new Date("2025-08-07T10:15:00"),
+      merchantName: "Nguyễn Văn Hải",
+      stallCode: "C05",
+      paymentDescription: "Thanh toán phí mặt bằng T08/2025",
+      amount: 9200000,
+      paymentMethod: "Tiền mặt",
+      status: "Thành công",
+      collectedBy: "Trần Văn An",
+      invoices: [
+        { id: "INV-082025-C05", type: "Phí mặt bằng", amount: 9200000 }
+      ],
+      debtBefore: 9200000,
+      debtAfter: 0
+    },
+    {
+      id: "15",
+      transactionCode: "GD-20250807-003",
+      timestamp: new Date("2025-08-07T11:30:00"),
+      merchantName: "Nguyễn Thị Lan",
+      stallCode: "A01",
+      paymentDescription: "Thanh toán phí điện, nước T09/2025",
+      amount: 600000,
+      paymentMethod: "Chuyển khoản",
+      status: "Thành công",
+      collectedBy: "Nguyễn Thị Hoa",
+      invoices: [
+        { id: "INV-092025-A01", type: "Phí điện, nước", amount: 600000 }
+      ],
+      debtBefore: 600000,
+      debtAfter: 0
+    },
+    {
+      id: "16",
+      transactionCode: "GD-20250807-004",
+      timestamp: new Date("2025-08-07T14:45:00"),
+      merchantName: "Trần Văn Hùng",
+      stallCode: "B01",
+      paymentDescription: "Thanh toán phí vệ sinh T08/2025",
+      amount: 300000,
+      paymentMethod: "Tiền mặt",
+      status: "Thành công",
+      collectedBy: "Lê Văn Minh",
+      invoices: [
+        { id: "INV-VS-082025-B01", type: "Phí vệ sinh", amount: 300000 }
+      ],
+      debtBefore: 300000,
+      debtAfter: 0
+    },
+    {
+      id: "17",
+      transactionCode: "GD-20250807-005",
+      timestamp: new Date("2025-08-07T16:00:00"),
+      merchantName: "Lê Thị Mai",
+      stallCode: "B02",
+      paymentDescription: "Thanh toán phí điện, nước T09/2025",
+      amount: 450000,
+      paymentMethod: "QR Code",
+      status: "Thành công",
+      collectedBy: "Trần Văn An",
+      invoices: [
+        { id: "INV-092025-B02", type: "Phí điện, nước", amount: 450000 }
+      ],
+      debtBefore: 450000,
+      debtAfter: 0
+    },
+    {
+      id: "18",
+      transactionCode: "GD-20250808-001",
+      timestamp: new Date("2025-08-08T09:30:00"),
+      merchantName: "Phạm Văn Nam",
+      stallCode: "C02",
+      paymentDescription: "Thanh toán phí vệ sinh T08/2025",
+      amount: 400000,
+      paymentMethod: "Chuyển khoản",
+      status: "Thành công",
+      collectedBy: "Nguyễn Thị Hoa",
+      invoices: [
+        { id: "INV-VS-082025-C02", type: "Phí vệ sinh", amount: 400000 }
+      ],
+      debtBefore: 400000,
+      debtAfter: 0
+    },
+    {
+      id: "19",
+      transactionCode: "GD-20250808-002",
+      timestamp: new Date("2025-08-08T10:45:00"),
+      merchantName: "Hoàng Thị Hoa",
+      stallCode: "D01",
+      paymentDescription: "Thanh toán phí vệ sinh T08/2025",
+      amount: 500000,
+      paymentMethod: "Tiền mặt",
+      status: "Thành công",
+      collectedBy: "Lê Văn Minh",
+      invoices: [
+        { id: "INV-VS-082025-D01", type: "Phí vệ sinh", amount: 500000 }
+      ],
+      debtBefore: 500000,
+      debtAfter: 0
+    },
+    {
+      id: "20",
+      transactionCode: "GD-20250808-003",
+      timestamp: new Date("2025-08-08T11:15:00"),
+      merchantName: "Vũ Đình Long",
+      stallCode: "D02",
+      paymentDescription: "Thanh toán phí điện, nước T09/2025",
+      amount: 350000,
+      paymentMethod: "QR Code",
+      status: "Thành công",
+      collectedBy: "Trần Văn An",
+      invoices: [
+        { id: "INV-092025-D02", type: "Phí điện, nước", amount: 350000 }
+      ],
+      debtBefore: 350000,
+      debtAfter: 0
+    }
+  ])
+
+  const [invoices, setInvoices] = useState<Invoice[]>([
+    {
+      id: "INV-082025-A01-001",
+      merchantName: "Nguyễn Thị Lan",
+      stallCode: "A01",
+      feeType: "Phí mặt bằng",
+      amount: 5000000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "unpaid",
+      description: "Phí thuê mặt bằng tháng 8/2025"
+    },
+    {
+      id: "INV-082025-A01-002",
+      merchantName: "Nguyễn Thị Lan",
+      stallCode: "A01",
+      feeType: "Phí điện",
+      amount: 1200000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-20",
+      status: "unpaid",
+      description: "Tiền điện tháng 7/2025"
+    },
+    {
+      id: "INV-082025-A01-003",
+      merchantName: "Nguyễn Thị Lan",
+      stallCode: "A01",
+      feeType: "Phí vệ sinh",
+      amount: 2000000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-25",
+      status: "unpaid",
+      description: "Phí vệ sinh môi trường tháng 8/2025"
+    },
+    {
+      id: "INV-082025-B01-001",
+      merchantName: "Trần Văn Hùng",
+      stallCode: "B01",
+      feeType: "Phí mặt bằng",
+      amount: 3500000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "unpaid",
+      description: "Phí thuê mặt bằng tháng 8/2025"
+    },
+    {
+      id: "INV-082025-B01-002",
+      merchantName: "Trần Văn Hùng",
+      stallCode: "B01",
+      feeType: "Phí điện",
+      amount: 800000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-20",
+      status: "unpaid",
+      description: "Tiền điện tháng 7/2025"
+    },
+    {
+      id: "INV-082025-B01-003",
+      merchantName: "Trần Văn Hùng",
+      stallCode: "B01",
+      feeType: "Phí vệ sinh",
+      amount: 1200000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-25",
+      status: "unpaid",
+      description: "Phí vệ sinh môi trường tháng 8/2025"
+    },
+    {
+      id: "INV-082025-B02-001",
+      merchantName: "Lê Thị Mai",
+      stallCode: "B02",
+      feeType: "Phí mặt bằng",
+      amount: 2800000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "unpaid",
+      description: "Phí thuê mặt bằng tháng 8/2025"
+    },
+    {
+      id: "INV-082025-B02-002",
+      merchantName: "Lê Thị Mai",
+      stallCode: "B02",
+      feeType: "Phí điện",
+      amount: 400000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-20",
+      status: "unpaid",
+      description: "Tiền điện tháng 7/2025"
+    },
+    {
+      id: "INV-082025-C02-001",
+      merchantName: "Phạm Văn Nam",
+      stallCode: "C02",
+      feeType: "Phí mặt bằng",
+      amount: 4500000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "unpaid",
+      description: "Phí thuê mặt bằng tháng 8/2025"
+    },
+    {
+      id: "INV-082025-C02-002",
+      merchantName: "Phạm Văn Nam",
+      stallCode: "C02",
+      feeType: "Phí điện",
+      amount: 1500000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-20",
+      status: "unpaid",
+      description: "Tiền điện tháng 7/2025"
+    },
+    {
+      id: "INV-082025-C02-003",
+      merchantName: "Phạm Văn Nam",
+      stallCode: "C02",
+      feeType: "Phí vệ sinh",
+      amount: 1500000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-25",
+      status: "unpaid",
+      description: "Phí vệ sinh môi trường tháng 8/2025"
+    },
+    {
+      id: "INV-082025-D01-001",
+      merchantName: "Hoàng Thị Hoa",
+      stallCode: "D01",
+      feeType: "Phí mặt bằng",
+      amount: 3800000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "unpaid",
+      description: "Phí thuê mặt bằng tháng 8/2025"
+    },
+    {
+      id: "INV-082025-D01-002",
+      merchantName: "Hoàng Thị Hoa",
+      stallCode: "D01",
+      feeType: "Phí điện",
+      amount: 400000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-20",
+      status: "unpaid",
+      description: "Tiền điện tháng 7/2025"
+    },
+    {
+      id: "INV-010",
+      merchantName: "Trịnh Văn Sơn",
+      stallCode: "D03",
+      feeType: "Phí mặt bằng",
+      amount: 8500000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-011",
+      merchantName: "Phan Thị Nga",
+      stallCode: "E03",
+      feeType: "Phí mặt bằng",
+      amount: 3600000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-012",
+      merchantName: "Hoàng Văn Tú",
+      stallCode: "A05",
+      feeType: "Phí mặt bằng",
+      amount: 6800000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-013",
+      merchantName: "Võ Thị Lan",
+      stallCode: "B05",
+      feeType: "Phí mặt bằng",
+      amount: 4400000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-014",
+      merchantName: "Nguyễn Văn Hải",
+      stallCode: "C05",
+      feeType: "Phí mặt bằng",
+      amount: 9200000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-015",
+      merchantName: "Nguyễn Thị Lan",
+      stallCode: "A01",
+      feeType: "Phí điện nước",
+      amount: 600000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "paid"
+    },
+    {
+      id: "INV-016",
+      merchantName: "Trần Văn Hùng",
+      stallCode: "B01",
+      feeType: "Phí vệ sinh",
+      amount: 300000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-017",
+      merchantName: "Lê Thị Mai",
+      stallCode: "B02",
+      feeType: "Phí điện nước",
+      amount: 450000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "paid"
+    },
+    {
+      id: "INV-018",
+      merchantName: "Phạm Văn Nam",
+      stallCode: "C02",
+      feeType: "Phí vệ sinh",
+      amount: 400000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-019",
+      merchantName: "Hoàng Thị Hoa",
+      stallCode: "D01",
+      feeType: "Phí vệ sinh",
+      amount: 500000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-020",
+      merchantName: "Vũ Đình Long",
+      stallCode: "D02",
+      feeType: "Phí điện nước",
+      amount: 350000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "paid"
+    },
+    {
+      id: "INV-021",
+      merchantName: "Ngô Thị Bình",
+      stallCode: "A03",
+      feeType: "Phí vệ sinh",
+      amount: 200000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-022",
+      merchantName: "Đỗ Văn Minh",
+      stallCode: "B03",
+      feeType: "Phí điện nước",
+      amount: 200000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-023",
+      merchantName: "Lý Thị Hương",
+      stallCode: "C03",
+      feeType: "Phí điện nước",
+      amount: 200000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-024",
+      merchantName: "Trịnh Văn Sơn",
+      stallCode: "D03",
+      feeType: "Phí vệ sinh",
+      amount: 400000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-025",
+      merchantName: "Phan Thị Nga",
+      stallCode: "E03",
+      feeType: "Phí vệ sinh",
+      amount: 200000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-026",
+      merchantName: "Hoàng Văn Tú",
+      stallCode: "A05",
+      feeType: "Phí điện nước",
+      amount: 300000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-027",
+      merchantName: "Võ Thị Lan",
+      stallCode: "B05",
+      feeType: "Phí điện nước",
+      amount: 200000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-028",
+      merchantName: "Nguyễn Văn Hải",
+      stallCode: "C05",
+      feeType: "Phí vệ sinh",
+      amount: 500000,
+      createdDate: "2025-08-01",
+      dueDate: "2025-08-15",
+      status: "paid"
+    },
+    {
+      id: "INV-029",
+      merchantName: "Nguyễn Thị Lan",
+      stallCode: "A01",
+      feeType: "Phí mặt bằng",
+      amount: 5000000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-030",
+      merchantName: "Trần Văn Hùng",
+      stallCode: "B01",
+      feeType: "Phí mặt bằng",
+      amount: 4500000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-031",
+      merchantName: "Lê Thị Mai",
+      stallCode: "B02",
+      feeType: "Phí mặt bằng",
+      amount: 4000000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-032",
+      merchantName: "Phạm Văn Nam",
+      stallCode: "C02",
+      feeType: "Phí mặt bằng",
+      amount: 7500000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-033",
+      merchantName: "Hoàng Thị Hoa",
+      stallCode: "D01",
+      feeType: "Phí mặt bằng",
+      amount: 9000000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-034",
+      merchantName: "Vũ Đình Long",
+      stallCode: "D02",
+      feeType: "Phí mặt bằng",
+      amount: 5500000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-035",
+      merchantName: "Ngô Thị Bình",
+      stallCode: "A03",
+      feeType: "Phí mặt bằng",
+      amount: 5200000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-036",
+      merchantName: "Đỗ Văn Minh",
+      stallCode: "B03",
+      feeType: "Phí mặt bằng",
+      amount: 4200000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-037",
+      merchantName: "Lý Thị Hương",
+      stallCode: "C03",
+      feeType: "Phí mặt bằng",
+      amount: 3800000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-038",
+      merchantName: "Trịnh Văn Sơn",
+      stallCode: "D03",
+      feeType: "Phí mặt bằng",
+      amount: 8500000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-039",
+      merchantName: "Phan Thị Nga",
+      stallCode: "E03",
+      feeType: "Phí mặt bằng",
+      amount: 3600000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-040",
+      merchantName: "Hoàng Văn Tú",
+      stallCode: "A05",
+      feeType: "Phí mặt bằng",
+      amount: 6800000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-041",
+      merchantName: "Võ Thị Lan",
+      stallCode: "B05",
+      feeType: "Phí mặt bằng",
+      amount: 4400000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    },
+    {
+      id: "INV-042",
+      merchantName: "Nguyễn Văn Hải",
+      stallCode: "C05",
+      feeType: "Phí mặt bằng",
+      amount: 9200000,
+      createdDate: "2025-09-01",
+      dueDate: "2025-09-15",
+      status: "unpaid"
+    }
+  ])
+
+  // Financial Functions
+  const addTransaction = (transaction: Transaction) => {
+    setTransactions(prev => [...prev, transaction])
+  }
+
+  const updateTransaction = (transactionId: string, updates: Partial<Transaction>) => {
+    setTransactions(prev => prev.map(t => t.id === transactionId ? { ...t, ...updates } : t))
+  }
+
+  const deleteTransaction = (transactionId: string) => {
+    setTransactions(prev => prev.filter(t => t.id !== transactionId))
+  }
+
+  const addInvoice = (invoice: Invoice) => {
+    setInvoices(prev => [...prev, invoice])
+  }
+
+  const updateInvoice = (invoiceId: string, updates: Partial<Invoice>) => {
+    setInvoices(prev => prev.map(i => i.id === invoiceId ? { ...i, ...updates } : i))
+  }
+
+  const deleteInvoice = (invoiceId: string) => {
+    setInvoices(prev => prev.filter(i => i.id !== invoiceId))
+  }
+
+  const syncFinancialData = () => {
+    // Sync financial data with stall data
+    setStalls(prev => prev.map(stall => {
+      const stallTransactions = transactions.filter(t => t.stallCode === stall.code)
+      const stallInvoices = invoices.filter(i => i.stallCode === stall.code)
+      
+      const totalPaid = stallTransactions
+        .filter(t => t.status === "Thành công")
+        .reduce((sum, t) => sum + t.amount, 0)
+      
+      const totalInvoiced = stallInvoices
+        .filter(i => i.status === "paid")
+        .reduce((sum, i) => sum + i.amount, 0)
+      
+      const currentDebt = totalInvoiced - totalPaid
+      
+      return {
+        ...stall,
+        currentDebt: currentDebt > 0 ? currentDebt : 0,
+        lastPaymentDate: stallTransactions.length > 0 
+          ? stallTransactions[stallTransactions.length - 1].timestamp.toISOString().split('T')[0]
+          : undefined
+      }
+    }))
+  }
+
   // Stall Management Functions
   const addStall = (stall: Stall) => {
     setStalls(prev => [...prev, stall])
@@ -894,8 +1943,19 @@ export function StallDataProvider({ children }: { children: ReactNode }) {
     addStallToZone,
     updateStallInZone,
     deleteStallFromZone,
+    transactions,
+    setTransactions,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    invoices,
+    setInvoices,
+    addInvoice,
+    updateInvoice,
+    deleteInvoice,
     syncStallData,
-    syncMapData
+    syncMapData,
+    syncFinancialData
   }
 
   return (

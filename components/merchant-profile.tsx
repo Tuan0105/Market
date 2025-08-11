@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useStallData } from "@/lib/stall-data-context"
 import {
   AlertCircle,
   ArrowLeft,
@@ -70,6 +71,7 @@ interface Transaction {
 }
 
 export function MerchantProfile({ onBack }: MerchantProfileProps) {
+  const { stalls, transactions, invoices } = useStallData()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null)
   const [error, setError] = useState("")
@@ -247,134 +249,78 @@ export function MerchantProfile({ onBack }: MerchantProfileProps) {
     return Object.keys(newErrors).length === 0
   }
 
-  // Sample data - chuyển thành state để có thể thêm mới
-  const [merchants, setMerchants] = useState<Merchant[]>([
-    {
-      id: "1",
-      name: "Nguyễn Thị Lan",
-      stallId: "A01",
-      phone: "0901234567",
-      email: "nguyenthilan@email.com",
-      address: "123 Đường ABC, Quận 1, TP.HCM",
-      zone: "Khu A - Thực phẩm tươi sống",
-      contractId: "HD-2024-001",
-      contractStartDate: "2024-01-15",
-      contractEndDate: "2025-01-14",
-      status: "active",
-      totalDebt: 8200000,
-      monthlyRent: 5000000,
-      joinDate: "2024-01-15",
-    },
-    {
-      id: "2",
-      name: "Trần Văn Hùng",
-      stallId: "B12",
-      phone: "0912345678",
-      email: "tranvanhung@email.com",
-      address: "456 Đường XYZ, Quận 3, TP.HCM",
-      zone: "Khu B - Thực phẩm khô",
-      contractId: "HD-2024-002",
-      contractStartDate: "2024-02-01",
-      contractEndDate: "2025-01-31",
-      status: "active",
-      totalDebt: 5500000,
-      monthlyRent: 3500000,
-      joinDate: "2024-02-01",
-    },
-    {
-      id: "3",
-      name: "Lê Thị Mai",
-      stallId: "C05",
-      phone: "0923456789",
-      email: "lethimai@email.com",
-      address: "789 Đường DEF, Quận 5, TP.HCM",
-      zone: "Khu C - Quần áo & Phụ kiện",
-      contractId: "HD-2024-003",
-      contractStartDate: "2024-03-01",
-      contractEndDate: "2025-02-28",
-      status: "suspended",
-      totalDebt: 3200000,
-      monthlyRent: 2800000,
-      joinDate: "2024-03-01",
-    },
-  ])
+  // Convert stalls to merchants format
+  const merchants: Merchant[] = stalls
+    .filter(stall => stall.merchantName && stall.status === "occupied")
+    .map(stall => ({
+      id: stall.id,
+      name: stall.merchantName,
+      stallId: stall.code,
+      phone: stall.phone || "",
+      email: stall.email || "",
+      address: stall.address || "",
+      zone: stall.category === "food" ? "Khu A - Thực phẩm tươi sống" :
+            stall.category === "spices" ? "Khu B - Thực phẩm khô" :
+            stall.category === "clothing" ? "Khu C - Quần áo & Phụ kiện" :
+            stall.category === "beverages" ? "Khu E - Đồ uống & Giải khát" :
+            "Khu D - Gia vị",
+      contractId: `HD-${stall.contractStartDate?.split('-')[0] || '2024'}-${stall.id.padStart(3, '0')}`,
+      contractStartDate: stall.contractStartDate || "",
+      contractEndDate: stall.contractEndDate || "",
+      status: stall.status === "occupied" ? "active" : 
+              stall.status === "expiring" ? "suspended" : "inactive",
+      totalDebt: stall.currentDebt || 0,
+      monthlyRent: stall.monthlyRent,
+      joinDate: stall.contractStartDate || "",
+    }))
 
-  const transactions: Record<string, Transaction[]> = {
-    "1": [
-      {
-        id: "TXN-001",
-        date: "2025-08-01",
-        type: "Phí mặt bằng",
-        amount: 5000000,
-        status: "paid",
-        description: "Phí thuê mặt bằng tháng 8/2025",
-        paymentMethod: "Tiền mặt",
-      },
-      {
-        id: "TXN-008",
-        date: "2025-08-07",
-        type: "Phí điện",
-        amount: 800000,
-        status: "paid",
-        description: "Tiền điện tháng 8/2025",
-        paymentMethod: "Chuyển khoản",
-      },
-      {
-        id: "TXN-002",
-        date: "2025-07-25",
-        type: "Phí điện",
-        amount: 1200000,
+    // Convert transactions and invoices to the format expected by this component
+  const merchantTransactions: Record<string, Transaction[]> = {}
+  
+  // Add transactions (paid)
+  transactions.forEach(transaction => {
+    const stall = stalls.find(s => s.code === transaction.stallCode)
+    if (stall) {
+      if (!merchantTransactions[stall.id]) {
+        merchantTransactions[stall.id] = []
+      }
+      
+      merchantTransactions[stall.id].push({
+        id: transaction.id,
+        date: transaction.timestamp.toISOString().split('T')[0],
+        type: transaction.paymentDescription.includes("mặt bằng") ? "rent" :
+              transaction.paymentDescription.includes("điện") ? "electricity" :
+              transaction.paymentDescription.includes("vệ sinh") ? "sanitation" : "other",
+        amount: transaction.amount,
+        status: transaction.status === "Thành công" ? "paid" : "unpaid",
+        description: transaction.paymentDescription,
+        paymentMethod: transaction.paymentMethod,
+      })
+    }
+  })
+
+  // Add unpaid invoices
+  invoices.forEach(invoice => {
+    const stall = stalls.find(s => s.code === invoice.stallCode)
+    if (stall && invoice.status === "unpaid") {
+      if (!merchantTransactions[stall.id]) {
+        merchantTransactions[stall.id] = []
+      }
+      
+      merchantTransactions[stall.id].push({
+        id: invoice.id,
+        date: invoice.dueDate,
+        type: invoice.feeType.includes("mặt bằng") ? "rent" :
+              invoice.feeType.includes("điện") ? "electricity" :
+              invoice.feeType.includes("vệ sinh") ? "sanitation" : "other",
+        amount: invoice.amount,
         status: "unpaid",
-        description: "Tiền điện tháng 7/2025",
-      },
-      {
-        id: "TXN-003",
-        date: "2025-07-01",
-        type: "Phí vệ sinh",
-        amount: 2000000,
-        status: "paid",
-        description: "Phí vệ sinh môi trường tháng 7/2025",
-        paymentMethod: "Chuyển khoản",
-      },
-    ],
-    "2": [
-      {
-        id: "TXN-004",
-        date: "2025-08-01",
-        type: "Phí mặt bằng",
-        amount: 3500000,
-        status: "unpaid",
-        description: "Phí thuê mặt bằng tháng 8/2025",
-      },
-      {
-        id: "TXN-005",
-        date: "2025-07-15",
-        type: "Phí điện",
-        amount: 2000000,
-        status: "paid",
-        description: "Tiền điện tháng 7/2025",
-        paymentMethod: "Chuyển khoản",
-      },
-    ],
-    "3": [
-      {
-        id: "TXN-006",
-        date: "2025-08-01",
-        type: "Phí mặt bằng",
-        amount: 2800000,
-        status: "unpaid",
-        description: "Phí thuê mặt bằng tháng 8/2025",
-      },
-      {
-        id: "TXN-007",
-        date: "2025-07-20",
-        type: "Phí vệ sinh",
-        amount: 400000,
-        status: "unpaid",
-        description: "Phí vệ sinh môi trường tháng 7/2025",
-      },
-    ],
-  }
+        description: invoice.description || invoice.feeType,
+        paymentMethod: undefined,
+      })
+    }
+  })
+
 
   const handleSearch = () => {
     setError("")
@@ -472,9 +418,9 @@ export function MerchantProfile({ onBack }: MerchantProfileProps) {
   }
 
   const getFilteredTransactions = (merchantId: string) => {
-    const merchantTransactions = transactions[merchantId] || []
+    const transactions = merchantTransactions[merchantId] || []
     
-    return merchantTransactions.filter((transaction) => {
+    return transactions.filter((transaction) => {
       // Lọc theo từ khóa tìm kiếm
       const matchesSearch = 
         transaction.description.toLowerCase().includes(transactionSearchQuery.toLowerCase()) ||
@@ -856,8 +802,8 @@ export function MerchantProfile({ onBack }: MerchantProfileProps) {
   const renderMerchantProfile = () => {
     if (!selectedMerchant) return null
 
-    const merchantTransactions = transactions[selectedMerchant.id] || []
-    const unpaidTransactions = merchantTransactions.filter((t) => t.status === "unpaid")
+    const transactions = merchantTransactions[selectedMerchant.id] || []
+    const unpaidTransactions = transactions.filter((t) => t.status === "unpaid")
 
     return (
       <div className="space-y-6">
@@ -1338,7 +1284,7 @@ export function MerchantProfile({ onBack }: MerchantProfileProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
-            onClick={onBack}
+            onClick={selectedMerchant ? () => setSelectedMerchant(null) : onBack}
             variant="ghost"
             size="icon"
             className="h-10 w-10"
@@ -1346,8 +1292,12 @@ export function MerchantProfile({ onBack }: MerchantProfileProps) {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Hồ sơ Tiểu thương</h1>
-            <p className="text-gray-600">Xem thông tin chi tiết và lịch sử giao dịch</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {selectedMerchant ? `Hồ sơ ${selectedMerchant.name}` : "Hồ sơ Tiểu thương"}
+            </h1>
+            <p className="text-gray-600">
+              {selectedMerchant ? "Xem thông tin chi tiết và lịch sử giao dịch" : "Xem thông tin chi tiết và lịch sử giao dịch"}
+            </p>
           </div>
         </div>
         <Button 
@@ -1772,7 +1722,7 @@ export function MerchantProfile({ onBack }: MerchantProfileProps) {
                       joinDate: newMerchant.contractStartDate,
                     }
                     
-                    setMerchants([...merchants, newMerchantData])
+                    // Note: Cannot add new merchants as data is read-only from context
                     
                     // Reset form and clear errors
                     setNewMerchant({
@@ -1915,11 +1865,11 @@ export function MerchantProfile({ onBack }: MerchantProfileProps) {
               <Button 
                 onClick={() => {
                   if (editingMerchant && editingMerchant.name && editingMerchant.stallId) {
-                    // Cập nhật thông tin tiểu thương
-                    const updatedMerchants = merchants.map(merchant => 
-                      merchant.id === editingMerchant.id ? editingMerchant : merchant
-                    )
-                    setMerchants(updatedMerchants)
+                    // Note: Cannot update merchants as data is read-only from context
+                    // const updatedMerchants = merchants.map(merchant => 
+                    //   merchant.id === editingMerchant.id ? editingMerchant : merchant
+                    // )
+                    // setMerchants(updatedMerchants)
                     
                     // Cập nhật selectedMerchant nếu đang xem tiểu thương này
                     if (selectedMerchant && selectedMerchant.id === editingMerchant.id) {
@@ -1979,11 +1929,11 @@ export function MerchantProfile({ onBack }: MerchantProfileProps) {
               <Button 
                 variant="destructive"
                 onClick={() => {
-                  // Xóa các tiểu thương đã chọn
-                  const updatedMerchants = merchants.filter(
-                    merchant => !selectedMerchants.includes(merchant.id)
-                  )
-                  setMerchants(updatedMerchants)
+                  // Note: Cannot delete merchants as data is read-only from context
+                  // const updatedMerchants = merchants.filter(
+                  //   merchant => !selectedMerchants.includes(merchant.id)
+                  // )
+                  // setMerchants(updatedMerchants)
                   
                   // Reset selected merchants và selected merchant nếu bị xóa
                   setSelectedMerchants([])
