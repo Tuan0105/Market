@@ -95,8 +95,8 @@ export function Dashboard({ userRole, userData, onLogout }: DashboardProps) {
         `}>
           <div className="flex items-center justify-between h-16 px-6 border-b">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">S</span>
+              <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">LS</span>
               </div>
               <span className="text-xl font-bold text-gray-900">LS-Chợ</span>
             </div>

@@ -150,7 +150,9 @@ export function Login({ onLoginSuccess }: LoginProps) {
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <Building2 className="w-12 h-12 text-blue-600" />
+            <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-blue-600 rounded-lg flex items-center justify-center">
+              <Building2 className="w-8 h-8 text-white" />
+            </div>
             <span className="text-2xl font-bold text-gray-900 ml-2">LS-Chợ</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Đăng nhập Hệ thống</h1>
