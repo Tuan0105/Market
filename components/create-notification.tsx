@@ -329,7 +329,7 @@ export function CreateNotification({ onBack }: CreateNotificationProps) {
                         <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                           <Bell className="w-4 h-4" />
                         </div>
-                        <span className="text-sm font-medium">S-Chợ</span>
+                        <span className="text-sm font-medium">LS-Chợ</span>
                       </div>
                       <span className="text-xs text-gray-400">Bây giờ</span>
                     </div>

@@ -151,7 +151,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <Building2 className="w-12 h-12 text-blue-600" />
-            <span className="text-2xl font-bold text-gray-900 ml-2">S-Chợ</span>
+            <span className="text-2xl font-bold text-gray-900 ml-2">LS-Chợ</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Đăng nhập Hệ thống</h1>
           <p className="text-gray-600 mt-2">Quản lý Chợ Lạng Sơn</p>

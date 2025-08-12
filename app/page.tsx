@@ -65,7 +65,7 @@ export default function LandingPage() {
                 <Building2 className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Viettel MarketPro</h1>
+                <h1 className="text-xl font-bold text-gray-900">LS-Chợ</h1>
                 <p className="text-sm text-gray-600">Giải pháp quản lý chợ truyền thống</p>
               </div>
             </div>
@@ -513,7 +513,7 @@ export default function LandingPage() {
                   <Building2 className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold">Viettel MarketPro</h3>
+                  <h3 className="font-bold">LS-Chợ</h3>
                   <p className="text-sm text-gray-400">Giải pháp quản lý chợ truyền thống</p>
                 </div>
               </div>
@@ -551,7 +551,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2024 Viettel MarketPro. Tất cả quyền được bảo lưu. | Phát triển bởi Tập đoàn Viettel</p>
+            <p>&copy; 2024 LS-Chợ. Tất cả quyền được bảo lưu. | Phát triển bởi Tập đoàn Viettel</p>
           </div>
         </div>
       </footer>

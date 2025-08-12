@@ -520,7 +520,7 @@ export function UserDashboard({ userData, onLogout }: UserDashboardProps) {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
               <Building2 className="w-8 h-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">S-Chợ</span>
+              <span className="text-xl font-bold text-gray-900">LS-Chợ</span>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
