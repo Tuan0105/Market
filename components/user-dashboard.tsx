@@ -318,40 +318,8 @@ export function UserDashboard({ userData, onLogout }: UserDashboardProps) {
           </div>
         </CardContent>
       </Card>
-
-      {/* Quick Access */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Truy cập Nhanh</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button variant="outline" className="h-20 flex flex-col gap-2 transition-transform hover:-translate-y-0.5 hover:shadow-md" onClick={() => setUserView('payments')}>
-              <History className="w-6 h-6" />
-              <span className="text-xs">Lịch sử Thanh toán</span>
-            </Button>
-            <Button variant="outline" className="relative h-20 flex flex-col gap-2 transition-transform hover:-translate-y-0.5 hover:shadow-md" onClick={() => setIsContractModalOpen(true)}>
-              {getContractDaysLeft() <= 30 && (<span title="Hợp đồng sắp hết hạn" className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>)}
-              <FileText className="w-6 h-6" />
-              <span className="text-xs">Hợp đồng của tôi</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2 transition-transform hover:-translate-y-0.5 hover:shadow-md" onClick={() => setUserView('marketMap')}>
-              <MapPin className="w-6 h-6" />
-              <span className="text-xs">Sơ đồ Chợ</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2 transition-transform hover:-translate-y-0.5 hover:shadow-md" onClick={() => setIsFeedbackModalOpen(true)}>
-              <MessageSquare className="w-6 h-6" />
-              <span className="text-xs">Gửi Phản ánh</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2 transition-transform hover:-translate-y-0.5 hover:shadow-md" onClick={() => setUserView('account')}>
-              <Settings className="w-6 h-6" />
-              <span className="text-xs">Tài khoản</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  )
+     </>
+   )
 
   type PaymentItem = { id: string; date: string; amount: number; status: 'success'; description: string }
   function PaymentsPage(props: { allPayments: PaymentItem[]; onBack: () => void }) {
@@ -538,12 +506,169 @@ export function UserDashboard({ userData, onLogout }: UserDashboardProps) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {userView === 'home' && renderHome()}
-        {userView === 'payments' && <PaymentsPage allPayments={allPayments} onBack={() => setUserView('home')} />}
-        {userView === 'marketMap' && renderMarketMapPage()}
-        {userView === 'account' && <AccountSettingsPage onBack={() => setUserView('home')} />}
-      </div>
+             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+         {userView === 'home' && renderHome()}
+         {userView === 'payments' && <PaymentsPage allPayments={allPayments} onBack={() => setUserView('home')} />}
+         {userView === 'marketMap' && renderMarketMapPage()}
+         {userView === 'account' && <AccountSettingsPage onBack={() => setUserView('home')} />}
+       </div>
+
+       {/* Fixed Footer with Quick Actions */}
+       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+           {/* Mobile Layout - Stacked buttons */}
+           <div className="block sm:hidden">
+             <div className="flex flex-col gap-2 py-3">
+               {/* Payment button - Full width on mobile */}
+               <Button 
+                 size="lg" 
+                 className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-lg h-12" 
+                 onClick={handlePayment}
+               >
+                 <CreditCard className="w-5 h-5 mr-2" />
+                 Thanh toán Ngay
+               </Button>
+               
+               {/* Quick action buttons - Grid layout */}
+               <div className="grid grid-cols-5 gap-1">
+                 <Button 
+                   variant="outline" 
+                   size="sm" 
+                   className="flex flex-col items-center gap-1 h-16 p-1"
+                   onClick={() => setUserView('payments')}
+                   title="Lịch sử Thanh toán"
+                 >
+                   <History className="w-5 h-5" />
+                   <span className="text-xs leading-tight">Lịch sử</span>
+                 </Button>
+                 
+                 <Button 
+                   variant="outline" 
+                   size="sm" 
+                   className="relative flex flex-col items-center gap-1 h-16 p-1"
+                   onClick={() => setIsContractModalOpen(true)}
+                   title="Hợp đồng của tôi"
+                 >
+                   {getContractDaysLeft() <= 30 && (
+                     <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                   )}
+                   <FileText className="w-5 h-5" />
+                   <span className="text-xs leading-tight">Hợp đồng</span>
+                 </Button>
+                 
+                 <Button 
+                   variant="outline" 
+                   size="sm" 
+                   className="flex flex-col items-center gap-1 h-16 p-1"
+                   onClick={() => setUserView('marketMap')}
+                   title="Sơ đồ Chợ"
+                 >
+                   <MapPin className="w-5 h-5" />
+                   <span className="text-xs leading-tight">Sơ đồ</span>
+                 </Button>
+                 
+                 <Button 
+                   variant="outline" 
+                   size="sm" 
+                   className="flex flex-col items-center gap-1 h-16 p-1"
+                   onClick={() => setIsFeedbackModalOpen(true)}
+                   title="Gửi Phản ánh"
+                 >
+                   <MessageSquare className="w-5 h-5" />
+                   <span className="text-xs leading-tight">Phản ánh</span>
+                 </Button>
+                 
+                 <Button 
+                   variant="outline" 
+                   size="sm" 
+                   className="flex flex-col items-center gap-1 h-16 p-1"
+                   onClick={() => setUserView('account')}
+                   title="Tài khoản"
+                 >
+                   <Settings className="w-5 h-5" />
+                   <span className="text-xs leading-tight">Tài khoản</span>
+                 </Button>
+               </div>
+             </div>
+           </div>
+           
+                                   {/* Desktop Layout - Centered with larger buttons */}
+            <div className="hidden sm:flex items-center justify-center gap-6 py-4">
+              {/* Payment button */}
+              <div className="flex-shrink-0">
+                <Button 
+                  size="lg" 
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-lg px-8 py-3 h-14" 
+                  onClick={handlePayment}
+                >
+                  <CreditCard className="w-6 h-6 mr-2" />
+                  Thanh toán Ngay
+                </Button>
+              </div>
+              
+              {/* Quick action buttons */}
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex flex-col items-center gap-2 h-16 w-20 p-3 border-2"
+                  onClick={() => setUserView('payments')}
+                  title="Lịch sử Thanh toán"
+                >
+                  <History className="w-6 h-6" />
+                  <span className="text-sm font-medium">Lịch sử</span>
+                </Button>
+
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="relative flex flex-col items-center gap-2 h-16 w-20 p-3 border-2"
+                  onClick={() => setIsContractModalOpen(true)}
+                  title="Hợp đồng của tôi"
+                >
+                  {getContractDaysLeft() <= 30 && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+                  )}
+                  <FileText className="w-6 h-6" />
+                  <span className="text-sm font-medium">Hợp đồng</span>
+                </Button>
+
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex flex-col items-center gap-2 h-16 w-20 p-3 border-2"
+                  onClick={() => setUserView('marketMap')}
+                  title="Sơ đồ Chợ"
+                >
+                  <MapPin className="w-6 h-6" />
+                  <span className="text-sm font-medium">Sơ đồ</span>
+                </Button>
+
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex flex-col items-center gap-2 h-16 w-20 p-3 border-2"
+                  onClick={() => setIsFeedbackModalOpen(true)}
+                  title="Gửi Phản ánh"
+                >
+                  <MessageSquare className="w-6 h-6" />
+                  <span className="text-sm font-medium">Phản ánh</span>
+                </Button>
+
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex flex-col items-center gap-2 h-16 w-20 p-3 border-2"
+                  onClick={() => setUserView('account')}
+                  title="Tài khoản"
+                >
+                  <Settings className="w-6 h-6" />
+                  <span className="text-sm font-medium">Tài khoản</span>
+                </Button>
+              </div>
+            </div>
+         </div>
+       </div>
 
       {/* Payment Modal */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
